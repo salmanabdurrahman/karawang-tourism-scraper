@@ -157,20 +157,24 @@ Distinct places: raw list 57; final dataset 55. Two places have no review JSON (
 
 One-time prerequisites (run from the repository root, inside the project venv): `python3 -m venv venv`, `source venv/bin/activate`, `pip install -r requirements.txt` (or `-r requirements.lock`), `playwright install chromium`.
 
-| Step | Command                               | Network | Expected output                                                             |
-| ---- | ------------------------------------- | ------- | --------------------------------------------------------------------------- |
-| 0    | `python src/gmaps_scraper.py`         | yes     | `data/raw/karawang_places_list.csv` (actual file name; see notes)           |
-| 1    | `python src/gmaps_reviews_scraper.py` | yes     | JSON per place in `data/reviews_json/`; existing places are skipped         |
-| 2    | `python src/process_gmaps_data.py`    | no      | `data/processed/karawang_tourism_final.csv` + rating summary in console     |
-| 3    | `python src/gmaps_image_scraper.py`   | yes     | `data/processed/karawang_place_images.csv` (57 rows)                        |
-| 4    | `python src/merge_images_to_final.py` | no      | `data/processed/karawang_tourism_final_with_images.csv` (5.202 rows)        |
-| 5    | `python src/prepare_content_based.py` | no      | `data/processed/karawang_places_content_based.csv` (55 rows) + NLP progress |
-| 6    | `python src/recommender_engine.py`    | no      | console: TF-IDF, similarity, recommendation demo                            |
+| Step | Command                                                              | Network | Expected output                                                             |
+| ---- | -------------------------------------------------------------------- | ------- | --------------------------------------------------------------------------- |
+| 0    | `python src/gmaps_scraper.py`                                        | yes     | `data/raw/karawang_places_list.csv` (actual file name; see notes)           |
+| 1    | `python src/gmaps_reviews_scraper.py`                                | yes     | JSON per place in `data/reviews_json/`; existing places are skipped         |
+| 2    | `python src/process_gmaps_data.py`                                   | no      | `data/processed/karawang_tourism_final.csv` + rating summary in console     |
+| 3    | `python src/gmaps_image_scraper.py`                                  | yes     | `data/processed/karawang_place_images.csv` (57 rows)                        |
+| 4    | `python src/merge_images_to_final.py`                                | no      | `data/processed/karawang_tourism_final_with_images.csv` (5.202 rows)        |
+| 5    | `NLTK_DISABLE_IMPORT_SECURITY=1 python src/prepare_content_based.py` | no      | `data/processed/karawang_places_content_based.csv` (55 rows) + NLP progress |
+| 6    | `python src/recommender_engine.py`                                   | no      | console: TF-IDF, similarity, recommendation demo                            |
 
 Non-network verification (contract + quality gates):
 
 - `python -m unittest discover -s tests` — full suite (schemas, column order, encodings, compatibility mapping, smoke tests).
 - `ruff check src tests` — linter (dev-only dependency, see `requirements-dev.txt`).
+
+The `NLTK_DISABLE_IMPORT_SECURITY=1` prefix is required for scripts that
+import NLTK when the venv lives inside the repo root (NLTK 3.10+ import
+block). The test suite sets it automatically.
 
 ## 7. Baseline Anomalies & Risks
 

@@ -151,7 +151,7 @@ python src/gmaps_image_scraper.py
 python src/merge_images_to_final.py
 
 # 6. Prepare content-based dataset (NLP, downloads NLTK punkt on first run)
-python src/prepare_content_based.py
+NLTK_DISABLE_IMPORT_SECURITY=1 python src/prepare_content_based.py
 
 # 7. Run recommendation demo (load → TF-IDF → similarity → demo)
 python src/recommender_engine.py
@@ -181,6 +181,8 @@ baseline test compares the real datasets in `data/` against the frozen row
 counts when the files are present (it skips automatically when they are not).
 Note: the suite sets `NLTK_DISABLE_IMPORT_SECURITY=1` at import time because
 NLTK 3.10+ blocks venv imports when the virtualenv lives inside the repo root.
+The same env var is needed when running `src/prepare_content_based.py` from
+the repository root (step 6 in Usage).
 
 Linting is done with [ruff](https://docs.astral.sh/ruff/) (configured in
 `pyproject.toml`):
