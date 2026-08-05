@@ -184,12 +184,19 @@ NLTK 3.10+ blocks venv imports when the virtualenv lives inside the repo root.
 The same env var is needed when running `src/prepare_content_based.py` from
 the repository root (step 6 in Usage).
 
-Linting is done with [ruff](https://docs.astral.sh/ruff/) (configured in
+Linting and formatting are done with [ruff](https://docs.astral.sh/ruff/) (configured in
 `pyproject.toml`):
 
 ```bash
 # from the repository root
 ruff check src tests
+ruff format --check src tests
+```
+
+To apply the formatter after editing:
+
+```bash
+ruff format src tests
 ```
 
 The linter only enforces error/import-sorting rules (`E`, `F`, `I`); the

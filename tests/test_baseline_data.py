@@ -36,18 +36,39 @@ from config import (
 
 # docs/baseline.md section 2.1 — exact frozen column orders
 FINAL_COLUMNS = [
-    "user_id", "user_rating", "review_text", "review_time", "place_name",
-    "place_description", "place_category", "place_attributes", "place_address",
-    "place_total_reviews_gmaps", "place_avg_rating",
+    "user_id",
+    "user_rating",
+    "review_text",
+    "review_time",
+    "place_name",
+    "place_description",
+    "place_category",
+    "place_attributes",
+    "place_address",
+    "place_total_reviews_gmaps",
+    "place_avg_rating",
 ]
 FINAL_WITH_IMAGES_COLUMNS = [
-    "user_id", "user_rating", "review_text", "review_time", "place_name",
-    "image_url", "place_description", "place_category", "place_attributes",
-    "place_address", "place_total_reviews_gmaps", "place_avg_rating",
+    "user_id",
+    "user_rating",
+    "review_text",
+    "review_time",
+    "place_name",
+    "image_url",
+    "place_description",
+    "place_category",
+    "place_attributes",
+    "place_address",
+    "place_total_reviews_gmaps",
+    "place_avg_rating",
 ]
 CONTENT_BASED_COLUMNS = [
-    "place_name", "place_category", "place_address", "place_avg_rating",
-    "total_reviews_scraped", "tags_corpus",
+    "place_name",
+    "place_category",
+    "place_address",
+    "place_avg_rating",
+    "total_reviews_scraped",
+    "tags_corpus",
 ]
 PLACES_LIST_COLUMNS = ["place_name", "gmaps_url"]
 PLACE_IMAGES_COLUMNS = ["place_name", "image_url"]

@@ -92,10 +92,9 @@ class FinalDatasetContractTest(unittest.TestCase):
             shutil.copy(os.path.join(REVIEWS_FIXTURES_DIR, name), os.path.join(src_dir, name))
         out_file = os.path.join(out_dir, "karawang_tourism_final.csv")
 
-        with mock.patch.object(process_gmaps_data, "INPUT_DIR", src_dir), \
-             mock.patch.object(process_gmaps_data, "OUTPUT_DIR", out_dir), \
-             mock.patch.object(process_gmaps_data, "OUTPUT_FILE", out_file), \
-             redirect_stdout(io.StringIO()):
+        with mock.patch.object(process_gmaps_data, "INPUT_DIR", src_dir), mock.patch.object(
+            process_gmaps_data, "OUTPUT_DIR", out_dir
+        ), mock.patch.object(process_gmaps_data, "OUTPUT_FILE", out_file), redirect_stdout(io.StringIO()):
             process_gmaps_data.process_all_files()
 
         return out_file
@@ -150,12 +149,14 @@ class FinalDatasetContractTest(unittest.TestCase):
         reviews = []
         for star in range(1, 6):
             for i in range(40):
-                reviews.append({
-                    "user_name": f"User {star}-{i}",
-                    "rating": star,
-                    "text": f"Review teks unik {star}-{i}",
-                    "time": "1 hari yang lalu",
-                })
+                reviews.append(
+                    {
+                        "user_name": f"User {star}-{i}",
+                        "rating": star,
+                        "text": f"Review teks unik {star}-{i}",
+                        "time": "1 hari yang lalu",
+                    }
+                )
         data = {
             "place_info": {
                 "name": "Tempat Padat",
@@ -181,46 +182,78 @@ class MergeImagesContractTest(unittest.TestCase):
         images_file = os.path.join(tmp, "images.csv")
         out_file = os.path.join(tmp, "final_with_images.csv")
 
-        main_df = pd.DataFrame([
-            {
-                "user_id": "a" * 10, "user_rating": 5, "review_text": "Bagus",
-                "review_time": "2025-01-01", "place_name": "Az-Zahra Galuh Mas Pelatihan Manasik Haji",
-                "place_description": "", "place_category": "Taman", "place_attributes": "",
-                "place_address": "Karawang", "place_total_reviews_gmaps": 10, "place_avg_rating": 4.5,
-            },
-            {
-                "user_id": "b" * 10, "user_rating": 4, "review_text": "Cantik",
-                "review_time": "2025-01-02", "place_name": "Curug Cigentis",
-                "place_description": "", "place_category": "Taman", "place_attributes": "",
-                "place_address": "Karawang", "place_total_reviews_gmaps": 20, "place_avg_rating": 4.0,
-            },
-            {
-                "user_id": "c" * 10, "user_rating": 3, "review_text": "Hijau",
-                "review_time": "2025-01-03", "place_name": "Taman Wirasena Walahar",
-                "place_description": "", "place_category": "Taman", "place_attributes": "",
-                "place_address": "Karawang", "place_total_reviews_gmaps": 5, "place_avg_rating": 3.8,
-            },
-            {
-                "user_id": "d" * 10, "user_rating": 5, "review_text": "Pasir",
-                "review_time": "2025-01-04", "place_name": "Pantai Samudera Baru",
-                "place_description": "", "place_category": "Pantai", "place_attributes": "",
-                "place_address": "Karawang", "place_total_reviews_gmaps": 8, "place_avg_rating": 4.2,
-            },
-        ])
+        main_df = pd.DataFrame(
+            [
+                {
+                    "user_id": "a" * 10,
+                    "user_rating": 5,
+                    "review_text": "Bagus",
+                    "review_time": "2025-01-01",
+                    "place_name": "Az-Zahra Galuh Mas Pelatihan Manasik Haji",
+                    "place_description": "",
+                    "place_category": "Taman",
+                    "place_attributes": "",
+                    "place_address": "Karawang",
+                    "place_total_reviews_gmaps": 10,
+                    "place_avg_rating": 4.5,
+                },
+                {
+                    "user_id": "b" * 10,
+                    "user_rating": 4,
+                    "review_text": "Cantik",
+                    "review_time": "2025-01-02",
+                    "place_name": "Curug Cigentis",
+                    "place_description": "",
+                    "place_category": "Taman",
+                    "place_attributes": "",
+                    "place_address": "Karawang",
+                    "place_total_reviews_gmaps": 20,
+                    "place_avg_rating": 4.0,
+                },
+                {
+                    "user_id": "c" * 10,
+                    "user_rating": 3,
+                    "review_text": "Hijau",
+                    "review_time": "2025-01-03",
+                    "place_name": "Taman Wirasena Walahar",
+                    "place_description": "",
+                    "place_category": "Taman",
+                    "place_attributes": "",
+                    "place_address": "Karawang",
+                    "place_total_reviews_gmaps": 5,
+                    "place_avg_rating": 3.8,
+                },
+                {
+                    "user_id": "d" * 10,
+                    "user_rating": 5,
+                    "review_text": "Pasir",
+                    "review_time": "2025-01-04",
+                    "place_name": "Pantai Samudera Baru",
+                    "place_description": "",
+                    "place_category": "Pantai",
+                    "place_attributes": "",
+                    "place_address": "Karawang",
+                    "place_total_reviews_gmaps": 8,
+                    "place_avg_rating": 4.2,
+                },
+            ]
+        )
         main_df.to_csv(main_file, index=False, encoding="utf-8-sig")
 
-        images_df = pd.DataFrame([
-            {"place_name": "Az-Zahra Galuh Mas (Pelatihan Manasik Haji)", "image_url": "https://img/az-zahra.jpg"},
-            {"place_name": "Curug Cigentis", "image_url": "https://img/curug.jpg"},
-            {"place_name": "Curug Cigentis", "image_url": "https://img/curug-dupe.jpg"},
-        ])
+        images_df = pd.DataFrame(
+            [
+                {"place_name": "Az-Zahra Galuh Mas (Pelatihan Manasik Haji)", "image_url": "https://img/az-zahra.jpg"},
+                {"place_name": "Curug Cigentis", "image_url": "https://img/curug.jpg"},
+                {"place_name": "Curug Cigentis", "image_url": "https://img/curug-dupe.jpg"},
+            ]
+        )
         images_df.to_csv(images_file, index=False)
 
-        with mock.patch.object(merge_images_to_final, "MAIN_DATASET_FILE", main_file), \
-             mock.patch.object(merge_images_to_final, "IMAGES_FILE", images_file), \
-             mock.patch.object(merge_images_to_final, "OUTPUT_FILE", out_file), \
-             mock.patch.object(merge_images_to_final, "PROCESSED_DIR", tmp), \
-             redirect_stdout(io.StringIO()):
+        with mock.patch.object(merge_images_to_final, "MAIN_DATASET_FILE", main_file), mock.patch.object(
+            merge_images_to_final, "IMAGES_FILE", images_file
+        ), mock.patch.object(merge_images_to_final, "OUTPUT_FILE", out_file), mock.patch.object(
+            merge_images_to_final, "PROCESSED_DIR", tmp
+        ), redirect_stdout(io.StringIO()):
             merge_images_to_final.merge_data()
 
         return out_file
@@ -262,10 +295,9 @@ class ContentBasedContractTest(unittest.TestCase):
             shutil.copy(os.path.join(REVIEWS_FIXTURES_DIR, name), os.path.join(src_dir, name))
         out_file = os.path.join(out_dir, "karawang_places_content_based.csv")
 
-        with mock.patch.object(prepare_content_based, "INPUT_DIR", src_dir), \
-             mock.patch.object(prepare_content_based, "OUTPUT_DIR", out_dir), \
-             mock.patch.object(prepare_content_based, "OUTPUT_FILE", out_file), \
-             redirect_stdout(io.StringIO()):
+        with mock.patch.object(prepare_content_based, "INPUT_DIR", src_dir), mock.patch.object(
+            prepare_content_based, "OUTPUT_DIR", out_dir
+        ), mock.patch.object(prepare_content_based, "OUTPUT_FILE", out_file), redirect_stdout(io.StringIO()):
             prepare_content_based.process_data()
 
         return out_file

@@ -54,6 +54,7 @@ OUTPUT_FILE = PLACE_IMAGES_FILE
 
 ensure_dir(OUTPUT_DIR)
 
+
 def scrape_place_image(page, url):
     """
     Extracts a representative image URL for one place.
@@ -79,7 +80,7 @@ def scrape_place_image(page, url):
         except Exception:
             time.sleep(2)
 
-        time.sleep(2) # Allow render time
+        time.sleep(2)  # Allow render time
 
         # 1. Find the Photo Gallery Button
         # Class: aoRNLd kn2E5e NMjTrf lvtCsd
@@ -125,6 +126,7 @@ def scrape_place_image(page, url):
 
     return image_url
 
+
 def scrape_images_only(headless=False):
     """
     Main function that orchestrates image scraping for all places.
@@ -145,10 +147,10 @@ def scrape_images_only(headless=False):
     # Browser lifecycle is owned by browser_session (always closed on exit)
     with browser_session(headless=headless, locale="id-ID") as page:
         for index, row in df.iterrows():
-            place_name = row['place_name']
-            url = row['gmaps_url']
+            place_name = row["place_name"]
+            url = row["gmaps_url"]
 
-            print(f"[{index+1}/{len(df)}] {place_name}...", end=" ")
+            print(f"[{index + 1}/{len(df)}] {place_name}...", end=" ")
 
             image_url = scrape_place_image(page, url)
 
@@ -159,15 +161,13 @@ def scrape_images_only(headless=False):
                 print("Empty")
                 image_url = PLACEHOLDER_IMAGE_URL  # Placeholder
 
-            results.append({
-                "place_name": place_name,
-                "image_url": image_url
-            })
+            results.append({"place_name": place_name, "image_url": image_url})
 
     # Save to CSV
     df_img = pd.DataFrame(results)
     df_img.to_csv(OUTPUT_FILE, index=False)
     print(f"\nDone! Image data saved to: {OUTPUT_FILE}")
+
 
 if __name__ == "__main__":
     scrape_images_only()

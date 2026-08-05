@@ -170,7 +170,7 @@ One-time prerequisites (run from the repository root, inside the project venv): 
 Non-network verification (contract + quality gates):
 
 - `python -m unittest discover -s tests` — full suite (schemas, column order, encodings, compatibility mapping, smoke tests).
-- `ruff check src tests` — linter (dev-only dependency, see `requirements-dev.txt`).
+- `ruff check src tests` and `ruff format --check src tests` — lint + format enforcement (dev-only dependency, see `requirements-dev.txt`).
 
 The `NLTK_DISABLE_IMPORT_SECURITY=1` prefix is required for scripts that
 import NLTK when the venv lives inside the repo root (NLTK 3.10+ import

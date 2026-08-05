@@ -52,18 +52,18 @@ OUTPUT_FILE = TOURISM_FINAL_WITH_IMAGES_FILE
 
 # Frozen output schema & column order (docs/baseline.md)
 FINAL_COLUMNS = [
-    'user_id',
-    'user_rating',
-    'review_text',
-    'review_time',
-    'place_name',
-    'image_url',
-    'place_description',
-    'place_category',
-    'place_attributes',
-    'place_address',
-    'place_total_reviews_gmaps',
-    'place_avg_rating'
+    "user_id",
+    "user_rating",
+    "review_text",
+    "review_time",
+    "place_name",
+    "image_url",
+    "place_description",
+    "place_category",
+    "place_attributes",
+    "place_address",
+    "place_total_reviews_gmaps",
+    "place_avg_rating",
 ]
 
 
@@ -103,27 +103,22 @@ def merge_images(df_main, df_img):
     # Trick: matches even with minor spacing differences
     df_main = df_main.copy()
     df_img = df_img.copy()
-    df_main['join_key'] = df_main['place_name'].apply(clean_name_key)
-    df_img['join_key'] = df_img['place_name'].apply(clean_name_key)
+    df_main["join_key"] = df_main["place_name"].apply(clean_name_key)
+    df_img["join_key"] = df_img["place_name"].apply(clean_name_key)
 
     # Drop the original name column in df_img to avoid duplication on merge
-    df_img_clean = df_img[['join_key', 'image_url']].drop_duplicates(subset=['join_key'])
+    df_img_clean = df_img[["join_key", "image_url"]].drop_duplicates(subset=["join_key"])
 
     # 3. Merge (Left Join)
     # Attach image_url to the review dataset based on join_key
-    df_final = pd.merge(
-        df_main, 
-        df_img_clean, 
-        on='join_key', 
-        how='left'
-    )
+    df_final = pd.merge(df_main, df_img_clean, on="join_key", how="left")
 
     # Fill missing values with placeholder
-    df_final['image_url'] = df_final['image_url'].fillna(PLACEHOLDER_IMAGE_URL)
+    df_final["image_url"] = df_final["image_url"].fillna(PLACEHOLDER_IMAGE_URL)
 
     # 4. Clean Up Columns
-    if 'join_key' in df_final.columns:
-        df_final = df_final.drop(columns=['join_key'])
+    if "join_key" in df_final.columns:
+        df_final = df_final.drop(columns=["join_key"])
 
     return df_final
 
@@ -142,14 +137,14 @@ def write_output(df):
 
     # 5. Save
     ensure_dir(PROCESSED_DIR)
-    df.to_csv(OUTPUT_FILE, index=False, encoding='utf-8-sig')
-    
-    print("\n" + "="*50)
+    df.to_csv(OUTPUT_FILE, index=False, encoding="utf-8-sig")
+
+    print("\n" + "=" * 50)
     print("DONE! Final dataset + images saved.")
     print(f"Output: {OUTPUT_FILE}")
     print("-" * 30)
-    print(df[['place_name', 'image_url']].head(3))
-    print("="*50)
+    print(df[["place_name", "image_url"]].head(3))
+    print("=" * 50)
 
 
 # Orchestration

@@ -43,27 +43,21 @@ INPUT_FILE = CONTENT_BASED_FILE
 
 # Frozen TF-IDF parameters (docs/baseline.md)
 TFIDF_PARAMS = {
-    'analyzer': 'word',
-    'ngram_range': (1, 2),
-    'min_df': 2,
-    'max_df': 0.85,
-    'max_features': 10000,
-    'sublinear_tf': True,
+    "analyzer": "word",
+    "ngram_range": (1, 2),
+    "min_df": 2,
+    "max_df": 0.85,
+    "max_features": 10000,
+    "sublinear_tf": True,
 }
 
 # Recommendation count: top 10 similar places (docs/baseline.md)
 TOP_N = 10
 
 # Sample places & keywords for the Table 4.6 / 4.7 console tables
-SAMPLE_PLACES = [
-    'Curug Cigentis',
-    'Hutan Kertas',
-    'Pantai Samudera Baru',
-    'Goa Dayeuh',
-    'Green Canyon'
-]
+SAMPLE_PLACES = ["Curug Cigentis", "Hutan Kertas", "Pantai Samudera Baru", "Goa Dayeuh", "Green Canyon"]
 
-DISPLAY_KEYWORDS = ['air', 'alam', 'pantai', 'sejarah', 'curug', 'pasir', 'wahana', 'kolam', 'sejuk', 'foto']
+DISPLAY_KEYWORDS = ["air", "alam", "pantai", "sejarah", "curug", "pasir", "wahana", "kolam", "sejuk", "foto"]
 
 
 # ===========================
@@ -107,10 +101,10 @@ def clean_place_names(df):
     """
     print("Cleaning up place names...")
 
-    df['place_name'] = df['place_name'].apply(clean_display_name)
+    df["place_name"] = df["place_name"].apply(clean_display_name)
 
     # Make sure there are no null values in the corpus
-    df['tags_corpus'] = df['tags_corpus'].fillna('')
+    df["tags_corpus"] = df["tags_corpus"].fillna("")
 
     return df
 
@@ -135,7 +129,7 @@ def build_tfidf(df):
     tf = TfidfVectorizer(**TFIDF_PARAMS)
 
     # Fit and Transform
-    tfidf_matrix = tf.fit_transform(df['tags_corpus'])
+    tfidf_matrix = tf.fit_transform(df["tags_corpus"])
     feature_names = tf.get_feature_names_out()
 
     print(f"TF-IDF matrix built. Shape: {tfidf_matrix.shape}")
@@ -174,7 +168,7 @@ def build_indices(df):
         pandas.Series: Series with place_name as index and row index as value,
         with duplicate place names dropped.
     """
-    return pd.Series(df.index, index=df['place_name']).drop_duplicates()
+    return pd.Series(df.index, index=df["place_name"]).drop_duplicates()
 
 
 # ===========================
@@ -200,9 +194,9 @@ def get_recommendations(title, cosine_sim, df, indices):
 
     # Search logic
     if title_clean not in indices:
-        mask = df['place_name'].str.contains(title_clean, case=False, na=False)
+        mask = df["place_name"].str.contains(title_clean, case=False, na=False)
         if mask.any():
-            title_clean = df[mask].iloc[0]['place_name']
+            title_clean = df[mask].iloc[0]["place_name"]
             print(f"   (Using search result: {title_clean})")
         else:
             return None
@@ -216,14 +210,14 @@ def get_recommendations(title, cosine_sim, df, indices):
     sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
 
     # Take the top 10 (skip index 0)
-    sim_scores = sim_scores[1:TOP_N + 1]
+    sim_scores = sim_scores[1 : TOP_N + 1]
 
     place_indices = [i[0] for i in sim_scores]
     place_scores = [i[1] for i in sim_scores]
 
     # Return the result
-    result = df.iloc[place_indices][['place_name', 'place_category', 'place_avg_rating']].copy()
-    result['similarity_score'] = place_scores
+    result = df.iloc[place_indices][["place_name", "place_category", "place_avg_rating"]].copy()
+    result["similarity_score"] = place_scores
     return result
 
 
@@ -247,7 +241,7 @@ def select_sample_indices(df):
 
     for p in SAMPLE_PLACES:
         # Look for exact match or a strong partial match
-        mask = df['place_name'].str.contains(p, case=False, na=False)
+        mask = df["place_name"].str.contains(p, case=False, na=False)
         if mask.any():
             sample_indices.append(df[mask].index[0])
 
@@ -279,9 +273,7 @@ def print_tfidf_sample(df, tfidf_matrix, feature_names):
 
     # Build the TF-IDF Display DataFrame
     tfidf_display = pd.DataFrame(
-        tfidf_matrix[sample_indices].toarray(),
-        index=df.iloc[sample_indices]['place_name'],
-        columns=feature_names
+        tfidf_matrix[sample_indices].toarray(), index=df.iloc[sample_indices]["place_name"], columns=feature_names
     )
 
     # Show only the target keyword columns
@@ -304,8 +296,8 @@ def print_similarity_sample(df, cosine_sim, sample_indices):
 
     sim_display = pd.DataFrame(
         cosine_sim[np.ix_(sample_indices, sample_indices)],
-        index=df.iloc[sample_indices]['place_name'],
-        columns=df.iloc[sample_indices]['place_name']
+        index=df.iloc[sample_indices]["place_name"],
+        columns=df.iloc[sample_indices]["place_name"],
     )
 
     print(sim_display.round(3))
@@ -326,7 +318,7 @@ def run_demo(df, cosine_sim, indices, sample_indices):
 
     try:
         # Pick one place from the sample as the query
-        query_place = df.iloc[sample_indices[0]]['place_name']
+        query_place = df.iloc[sample_indices[0]]["place_name"]
 
         print(f"If a user views: '{query_place}', the system recommends:")
         recs = get_recommendations(query_place, cosine_sim, df, indices)

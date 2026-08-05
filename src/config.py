@@ -57,19 +57,19 @@ def resolve_raw_csv_name(generated_name):
 SEARCH_QUERY = "Tempat Wisata di Karawang"
 
 # ---------------------------------------------------------------- review limits
-MAX_REVIEWS_PER_PLACE = 400      # Reviews scraper target per place (text only)
-SCROLL_EXTRA_BUFFER = 100        # Extra cards to compensate for empty reviews
+MAX_REVIEWS_PER_PLACE = 400  # Reviews scraper target per place (text only)
+SCROLL_EXTRA_BUFFER = 100  # Extra cards to compensate for empty reviews
 MAX_SAMPLE_REVIEWS_PER_PLACE = 150  # Processing sampling: review cap per place
 
 # ---------------------------------------------------------------- timeout (ms) & delay (s)
-PAGE_LOAD_TIMEOUT = 60000   # Page navigation
+PAGE_LOAD_TIMEOUT = 60000  # Page navigation
 SHORT_SELECTOR_TIMEOUT = 10000  # Short selector wait (searchbox, feed, h1)
-SELECTOR_TIMEOUT = 15000    # Main selector for reviews scraper
-FALLBACK_TIMEOUT = 5000     # Fallback selector for reviews scraper
-SCROLL_PAUSE_TIME = 2       # Pause between scrolls (places scraper)
-MAX_SCROLL_ATTEMPTS = 50    # Scroll attempt cap (places scraper)
-TAB_SWITCH_DELAY = 2        # Delay after switching tabs (reviews scraper)
-SCROLL_DELAY = 1.5          # Pause between scrolls (reviews scraper)
+SELECTOR_TIMEOUT = 15000  # Main selector for reviews scraper
+FALLBACK_TIMEOUT = 5000  # Fallback selector for reviews scraper
+SCROLL_PAUSE_TIME = 2  # Pause between scrolls (places scraper)
+MAX_SCROLL_ATTEMPTS = 50  # Scroll attempt cap (places scraper)
+TAB_SWITCH_DELAY = 2  # Delay after switching tabs (reviews scraper)
+SCROLL_DELAY = 1.5  # Pause between scrolls (reviews scraper)
 
 # ---------------------------------------------------------------- placeholder image
 PLACEHOLDER_IMAGE_URL = "https://via.placeholder.com/400x300?text=No+Image"
@@ -80,37 +80,38 @@ PLACEHOLDER_IMAGE_URL = "https://via.placeholder.com/400x300?text=No+Image"
 # instead of inline selector strings.
 
 # Places list scraper (gmaps_scraper.py)
-SELECTOR_SEARCHBOX = 'input#searchboxinput'
+SELECTOR_SEARCHBOX = "input#searchboxinput"
 SELECTOR_RESULTS_FEED = 'div[role="feed"]'
-SELECTOR_PLACE_LINK = 'a.hfpxzc'
+SELECTOR_PLACE_LINK = "a.hfpxzc"
 SELECTOR_END_OF_LIST = "text=You've reached the end of the list"
 
 # Reviews scraper (gmaps_reviews_scraper.py)
-SELECTOR_PLACE_NAME = '.DUwDvf.lfPIob'
-SELECTOR_H1 = 'h1'
-SELECTOR_RATING_CONTAINER = '.fontBodyMedium.dmRWX'
+SELECTOR_PLACE_NAME = ".DUwDvf.lfPIob"
+SELECTOR_H1 = "h1"
+SELECTOR_RATING_CONTAINER = ".fontBodyMedium.dmRWX"
 SELECTOR_RATING_VALUE = 'span[aria-hidden="true"]'
 SELECTOR_REVIEWS_COUNT_LABEL = 'span[aria-label*="ulasan"], span[aria-label*="reviews"]'
-SELECTOR_CATEGORY_BUTTON = 'button.DkEaL'
-SELECTOR_ADDRESS = '.Io6YTe.fontBodyMedium.kR99db.fdkmkc'
-SELECTOR_TAB = 'div.Gpq6kf.NlVald'
+SELECTOR_CATEGORY_BUTTON = "button.DkEaL"
+SELECTOR_ADDRESS = ".Io6YTe.fontBodyMedium.kR99db.fdkmkc"
+SELECTOR_TAB = "div.Gpq6kf.NlVald"
 ABOUT_TAB_PATTERN = re.compile(r"Tentang|About")
 REVIEWS_TAB_PATTERN = re.compile(r"Ulasan|Reviews")
-SELECTOR_DESCRIPTION = 'span.HlvSq'
-SELECTOR_ATTRIBUTES = 'ul.ZQ6we li.hpLkke'
+SELECTOR_DESCRIPTION = "span.HlvSq"
+SELECTOR_ATTRIBUTES = "ul.ZQ6we li.hpLkke"
 SELECTOR_MAIN_PANEL = 'div[role="main"]'
-SELECTOR_REVIEW_CARD = 'div[data-review-id]'
-SELECTOR_SEE_MORE_BUTTON = 'button.w8nwRe.kyuRq'
-SELECTOR_REVIEW_TEXT = '.wiI7pd'
-SELECTOR_REVIEW_USER = '.d4r55.fontTitleMedium'
-SELECTOR_REVIEW_STARS_CONTAINER = '.DU9Pgb'
-SELECTOR_REVIEW_FILLED_STAR = 'span.hCCjke'
-SELECTOR_REVIEW_TIME = '.rsqaWe'
+SELECTOR_REVIEW_CARD = "div[data-review-id]"
+SELECTOR_SEE_MORE_BUTTON = "button.w8nwRe.kyuRq"
+SELECTOR_REVIEW_TEXT = ".wiI7pd"
+SELECTOR_REVIEW_USER = ".d4r55.fontTitleMedium"
+SELECTOR_REVIEW_STARS_CONTAINER = ".DU9Pgb"
+SELECTOR_REVIEW_FILLED_STAR = "span.hCCjke"
+SELECTOR_REVIEW_TIME = ".rsqaWe"
 
 # Image scraper (gmaps_image_scraper.py)
-SELECTOR_PHOTO_BUTTON = 'button.aoRNLd.kn2E5e.NMjTrf.lvtCsd'
-SELECTOR_PHOTO_DIV = 'div.Uf0tqf.ch8jbf'
+SELECTOR_PHOTO_BUTTON = "button.aoRNLd.kn2E5e.NMjTrf.lvtCsd"
+SELECTOR_PHOTO_DIV = "div.Uf0tqf.ch8jbf"
 SELECTOR_HERO_IMAGE = 'div[role="img"] img'
+
 
 # ---------------------------------------------------------------- helpers
 def ensure_dir(path):

@@ -51,12 +51,16 @@ class ExtractPlaceMetadataTest(unittest.TestCase):
             SELECTOR_PLACE_NAME,
             FakeLocator([FakeElement(inner_text="Curug Cigentis")]),
         )
-        rating_container = FakeLocator(children={
-            SELECTOR_RATING_VALUE: FakeLocator([FakeElement(inner_text="4,5")]),
-            SELECTOR_REVIEWS_COUNT_LABEL: FakeLocator([
-                FakeElement(attributes={"aria-label": "1.234 ulasan"}),
-            ]),
-        })
+        rating_container = FakeLocator(
+            children={
+                SELECTOR_RATING_VALUE: FakeLocator([FakeElement(inner_text="4,5")]),
+                SELECTOR_REVIEWS_COUNT_LABEL: FakeLocator(
+                    [
+                        FakeElement(attributes={"aria-label": "1.234 ulasan"}),
+                    ]
+                ),
+            }
+        )
         page.set_locator(SELECTOR_RATING_CONTAINER, rating_container)
         page.set_locator(
             SELECTOR_CATEGORY_BUTTON,
@@ -96,10 +100,12 @@ class ExtractAboutInfoTest(unittest.TestCase):
         page = FakePage()
         page.set_locator(
             SELECTOR_TAB,
-            FakeLocator([
-                FakeElement(inner_text="Tentang"),
-                FakeElement(inner_text="Ulasan"),
-            ]),
+            FakeLocator(
+                [
+                    FakeElement(inner_text="Tentang"),
+                    FakeElement(inner_text="Ulasan"),
+                ]
+            ),
         )
         page.set_locator(
             SELECTOR_DESCRIPTION,
@@ -107,10 +113,12 @@ class ExtractAboutInfoTest(unittest.TestCase):
         )
         page.set_locator(
             SELECTOR_ATTRIBUTES,
-            FakeLocator([
-                FakeElement(inner_text="Parkir: Ada"),
-                FakeElement(inner_text="Toilet: Ada"),
-            ]),
+            FakeLocator(
+                [
+                    FakeElement(inner_text="Parkir: Ada"),
+                    FakeElement(inner_text="Toilet: Ada"),
+                ]
+            ),
         )
 
         place_info = {"description": "", "attributes": ""}
@@ -134,8 +142,7 @@ class ExtractReviewsWithJsTest(unittest.TestCase):
     def test_uses_centralized_selectors_and_limits_to_max(self):
         page = FakePage()
         canned = [
-            {"user_name": f"User {i}", "rating": 5, "text": f"Review {i}", "time": "1 hari yang lalu"}
-            for i in range(5)
+            {"user_name": f"User {i}", "rating": 5, "text": f"Review {i}", "time": "1 hari yang lalu"} for i in range(5)
         ]
         page.evaluate_result = canned
 
@@ -162,29 +169,40 @@ class ExtractPlaceDataTest(unittest.TestCase):
         page = FakePage()
         page.set_locator(
             SELECTOR_PLACE_LINK,
-            FakeLocator([
-                FakeElement(attributes={
-                    "href": "https://maps.google.com/?cid=101",
-                    "aria-label": "Curug Cigentis",
-                }),
-                FakeElement(attributes={
-                    "href": "https://maps.google.com/?cid=102",
-                    "aria-label": "",
-                }),
-                FakeElement(attributes={
-                    "href": None,
-                    "aria-label": "Tanpa URL",
-                }),
-            ]),
+            FakeLocator(
+                [
+                    FakeElement(
+                        attributes={
+                            "href": "https://maps.google.com/?cid=101",
+                            "aria-label": "Curug Cigentis",
+                        }
+                    ),
+                    FakeElement(
+                        attributes={
+                            "href": "https://maps.google.com/?cid=102",
+                            "aria-label": "",
+                        }
+                    ),
+                    FakeElement(
+                        attributes={
+                            "href": None,
+                            "aria-label": "Tanpa URL",
+                        }
+                    ),
+                ]
+            ),
         )
 
         result = gmaps_scraper.extract_place_data(page)
 
         self.assertEqual(len(result), 1)
-        self.assertEqual(result[0], {
-            "place_name": "Curug Cigentis",
-            "gmaps_url": "https://maps.google.com/?cid=101",
-        })
+        self.assertEqual(
+            result[0],
+            {
+                "place_name": "Curug Cigentis",
+                "gmaps_url": "https://maps.google.com/?cid=101",
+            },
+        )
 
 
 if __name__ == "__main__":

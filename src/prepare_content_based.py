@@ -55,8 +55,12 @@ OUTPUT_FILE = CONTENT_BASED_FILE
 
 # Frozen output schema & column order (docs/baseline.md)
 CONTENT_BASED_COLUMNS = [
-    'place_name', 'place_category', 'place_address', 'place_avg_rating',
-    'total_reviews_scraped', 'tags_corpus'
+    "place_name",
+    "place_category",
+    "place_address",
+    "place_avg_rating",
+    "total_reviews_scraped",
+    "tags_corpus",
 ]
 
 
@@ -69,11 +73,11 @@ def ensure_nltk_resources():
     effects (no downloads, no filesystem writes).
     """
     try:
-        nltk.data.find('tokenizers/punkt')
+        nltk.data.find("tokenizers/punkt")
     except LookupError:
         print("Downloading NLTK resources...")
-        nltk.download('punkt')
-        nltk.download('punkt_tab')
+        nltk.download("punkt")
+        nltk.download("punkt_tab")
 
 
 # File Loading
@@ -88,7 +92,7 @@ def load_place_file(filepath):
         dict: Parsed JSON content, or None if the file could not be read.
     """
     try:
-        with open(filepath, 'r', encoding='utf-8') as f:
+        with open(filepath, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
         print(f"   Failed to LOAD {os.path.basename(filepath)}: {e}")
@@ -108,33 +112,33 @@ def extract_place_record(data, filepath):
         dict: Raw place record, or None if transformation failed.
     """
     try:
-        p_info = data.get('place_info', {})
-        reviews = data.get('reviews', [])
-        
+        p_info = data.get("place_info", {})
+        reviews = data.get("reviews", [])
+
         # Grab Place Metadata
-        p_name = p_info.get('name', '')
-        p_cat = p_info.get('category', '')
-        p_desc = p_info.get('description', '')
-        p_attr = p_info.get('attributes', '')
-        p_addr = p_info.get('address', '')
-        
+        p_name = p_info.get("name", "")
+        p_cat = p_info.get("category", "")
+        p_desc = p_info.get("description", "")
+        p_attr = p_info.get("attributes", "")
+        p_addr = p_info.get("address", "")
+
         try:
-            p_rating = float(p_info.get('avg_rating', '0').replace(',', '.'))
+            p_rating = float(p_info.get("avg_rating", "0").replace(",", "."))
         except (ValueError, TypeError):
             p_rating = 0.0
 
         # Combine ALL review texts into one long string
-        all_review_text = " ".join([r.get('text', '') for r in reviews if r.get('text')])
-        
+        all_review_text = " ".join([r.get("text", "") for r in reviews if r.get("text")])
+
         return {
-            'place_name': p_name,
-            'place_category': p_cat,
-            'place_address': p_addr,
-            'place_avg_rating': p_rating,
-            'raw_description': p_desc,
-            'raw_attributes': p_attr,
-            'raw_reviews_combined': all_review_text,
-            'total_reviews_scraped': len(reviews)
+            "place_name": p_name,
+            "place_category": p_cat,
+            "place_address": p_addr,
+            "place_avg_rating": p_rating,
+            "raw_description": p_desc,
+            "raw_attributes": p_attr,
+            "raw_reviews_combined": all_review_text,
+            "total_reviews_scraped": len(reviews),
         }
 
     except Exception as e:
@@ -153,14 +157,17 @@ def build_corpus(df):
         pandas.DataFrame: Records with the combined_text_raw column added.
     """
     print("\nCombining all texts (Metadata + Reviews)...")
-    
+
     # Combine Category + Attributes + Description + Reviews into one raw column
     df = df.copy()
-    df['combined_text_raw'] = (
-        df['place_category'].fillna('') + " " + 
-        df['raw_attributes'].str.replace('|', ' ').fillna('') + " " + 
-        df['raw_description'].fillna('') + " " + 
-        df['raw_reviews_combined'].fillna('')
+    df["combined_text_raw"] = (
+        df["place_category"].fillna("")
+        + " "
+        + df["raw_attributes"].str.replace("|", " ").fillna("")
+        + " "
+        + df["raw_description"].fillna("")
+        + " "
+        + df["raw_reviews_combined"].fillna("")
     )
 
     return df
@@ -178,40 +185,40 @@ def apply_nlp_pipeline(df):
         pandas.DataFrame: Records with tags_corpus added.
     """
     print("\nRunning NLP Pipeline (Sastrawi)...")
-    
+
     # 1. Case Folding
     print("   1. Case Folding...")
-    df['step1'] = df['combined_text_raw'].apply(case_folding)
-    
+    df["step1"] = df["combined_text_raw"].apply(case_folding)
+
     # 2. Tokenizing
     print("   2. Tokenizing...")
-    df['step2'] = df['step1'].apply(tokenizing)
-    
+    df["step2"] = df["step1"].apply(tokenizing)
+
     # 3. Stopword Removal
     print("   3. Stopword Removal...")
-    df['step3'] = df['step2'].apply(remove_stopwords)
-    
+    df["step3"] = df["step2"].apply(remove_stopwords)
+
     # 4. Stemming (heaviest step, be patient)
     print("   4. Stemming (be patient, this is the heaviest step)...")
-    
+
     total = len(df)
     stemmed_results = []
-    
-    for i, tokens in enumerate(df['step3']):
+
+    for i, tokens in enumerate(df["step3"]):
         # Simple progress bar
-        percent = int(((i+1) / total) * 100)
-        if (i+1) % 5 == 0 or i == 0 or i == total-1:
-            print(f"\r      Stemming progress: [{percent}%] ({i+1}/{total} places)", end="", flush=True)
-        
+        percent = int(((i + 1) / total) * 100)
+        if (i + 1) % 5 == 0 or i == 0 or i == total - 1:
+            print(f"\r      Stemming progress: [{percent}%] ({i + 1}/{total} places)", end="", flush=True)
+
         stemmed_tokens = stemming(tokens)
         stemmed_results.append(stemmed_tokens)
-        
+
     print("\n      Done!")
-    
-    df['step4'] = stemmed_results
-    
+
+    df["step4"] = stemmed_results
+
     # Join back into the final string (Corpus)
-    df['tags_corpus'] = df['step4'].apply(lambda x: ' '.join(x))
+    df["tags_corpus"] = df["step4"].apply(lambda x: " ".join(x))
 
     return df
 
@@ -225,18 +232,18 @@ def write_output(df):
         df (pandas.DataFrame): Records with tags_corpus.
     """
     df_final = df[CONTENT_BASED_COLUMNS]
-    
+
     ensure_dir(OUTPUT_DIR)
     df_final.to_csv(OUTPUT_FILE, index=False)
-    
-    print("\n" + "="*50)
+
+    print("\n" + "=" * 50)
     print("DATA PREPARATION DONE!")
     print(f"Output: {OUTPUT_FILE}")
     print("-" * 30)
     if not df_final.empty:
         print("Sample 'tags_corpus' (Final Output):")
-        print(str(df_final['tags_corpus'].iloc[0])[:150] + "...") 
-    print("="*50)
+        print(str(df_final["tags_corpus"].iloc[0])[:150] + "...")
+    print("=" * 50)
 
 
 # Orchestration
@@ -250,20 +257,20 @@ def process_data():
 
     # NLTK resources are checked here, at processing time (not at import time)
     ensure_nltk_resources()
-    
+
     # --- A. LOAD JSON DATA & FLATTEN ---
     if not require_dir(INPUT_DIR):
         print(f"Input folder not found: {INPUT_DIR}")
         return
 
     all_files = glob.glob(os.path.join(INPUT_DIR, "*.json"))
-    
+
     if not all_files:
         print(f"No JSON files found in {INPUT_DIR}")
         return
 
     print(f"Processing {len(all_files)} JSON files...")
-    
+
     places_data = []
 
     for filename in all_files:

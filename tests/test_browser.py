@@ -86,9 +86,7 @@ class BrowserSessionTest(unittest.TestCase):
     def test_locale_passed_to_context(self):
         with browser.browser_session(locale="id-ID"):
             pass
-        self.assertEqual(
-            self.fake.chromium.browser.last_context_kwargs, {"locale": "id-ID"}
-        )
+        self.assertEqual(self.fake.chromium.browser.last_context_kwargs, {"locale": "id-ID"})
 
     def test_no_locale_uses_default_context(self):
         with browser.browser_session():

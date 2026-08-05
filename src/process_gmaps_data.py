@@ -68,17 +68,17 @@ MAX_REVIEWS_PER_PLACE = MAX_SAMPLE_REVIEWS_PER_PLACE
 
 # Frozen output schema & column order (docs/baseline.md)
 FINAL_COLUMNS = [
-    'user_id',
-    'user_rating',
-    'review_text',
-    'review_time',
-    'place_name',
-    'place_description',
-    'place_category',
-    'place_attributes',
-    'place_address',
-    'place_total_reviews_gmaps',
-    'place_avg_rating'
+    "user_id",
+    "user_rating",
+    "review_text",
+    "review_time",
+    "place_name",
+    "place_description",
+    "place_category",
+    "place_attributes",
+    "place_address",
+    "place_total_reviews_gmaps",
+    "place_avg_rating",
 ]
 
 
@@ -94,7 +94,7 @@ def load_place_file(filepath):
         dict: Parsed JSON content, or None if the file could not be read.
     """
     try:
-        with open(filepath, 'r', encoding='utf-8') as f:
+        with open(filepath, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
         print(f"   Warning: failed to LOAD {os.path.basename(filepath)}: {e}")
@@ -105,49 +105,47 @@ def load_place_file(filepath):
 def deduplicate_reviews(raw_reviews):
     """
     Removes duplicate reviews based on user name and review text.
-    
+
     Also cleans and enriches review data during deduplication.
-    
+
     Args:
         raw_reviews (list): List of raw review dictionaries
-        
+
     Returns:
         list: List of unique, cleaned review dictionaries
     """
     unique_reviews = []
     seen_signatures = set()
-    
+
     for review in raw_reviews:
         # Clean user name and review text
-        user_name = clean_text(review.get('user_name', ''))
-        review_text = clean_text(review.get('text', ''))
-        
+        user_name = clean_text(review.get("user_name", ""))
+        review_text = clean_text(review.get("text", ""))
+
         # Skip reviews without text
         if not review_text:
             continue
-        
+
         # Create signature for duplicate detection
         signature = (user_name, review_text)
-        
+
         if signature not in seen_signatures:
             seen_signatures.add(signature)
-            
+
             # Enrich review data
-            review['clean_user_id'] = anonymize_user(user_name)
-            review['clean_text'] = review_text
-            review['clean_time_iso'] = convert_relative_time(
-                clean_text(review.get('time', ''))
-            )
-            
+            review["clean_user_id"] = anonymize_user(user_name)
+            review["clean_text"] = review_text
+            review["clean_time_iso"] = convert_relative_time(clean_text(review.get("time", "")))
+
             unique_reviews.append(review)
-    
+
     return unique_reviews
 
 
 def stratified_sample_reviews(reviews, max_count):
     """
     Performs stratified sampling to balance rating distribution.
-    
+
     Ensures diverse representation of all rating levels (1-5 stars) in the sample.
     Strategy:
     1. Group reviews into rating buckets (1-5 stars)
@@ -155,61 +153,61 @@ def stratified_sample_reviews(reviews, max_count):
     3. Sample from each bucket to meet target
     4. Fill remaining slots from overflow pool
     5. Shuffle final results
-    
+
     Args:
         reviews (list): List of review dictionaries
         max_count (int): Maximum number of reviews to return
-        
+
     Returns:
         list: Balanced sample of reviews
     """
     if len(reviews) <= max_count:
         return reviews
-    
+
     # Group reviews into rating buckets
     buckets = {1: [], 2: [], 3: [], 4: [], 5: [], 0: []}
-    
+
     for review in reviews:
         try:
-            rating = int(review.get('rating', 0))
+            rating = int(review.get("rating", 0))
         except (ValueError, TypeError):
             rating = 0
-        
+
         if rating not in buckets:
             rating = 0
-        
+
         buckets[rating].append(review)
-    
+
     # Calculate target per star rating
     target_per_star = max_count // 5
-    
+
     sampled_reviews = []
     overflow_pool = []
-    
+
     # Sample from each rating bucket
     for star in range(1, 6):
         reviews_in_bucket = buckets[star]
         random.shuffle(reviews_in_bucket)
-        
+
         # Take up to target, or all if less
         taken = reviews_in_bucket[:target_per_star]
         sampled_reviews.extend(taken)
-        
+
         # Add overflow to pool
         overflow_pool.extend(reviews_in_bucket[target_per_star:])
-    
+
     # Add rating 0 (no rating) to overflow pool
     overflow_pool.extend(buckets[0])
-    
+
     # Fill remaining slots from overflow pool
     shortage = max_count - len(sampled_reviews)
     if shortage > 0 and overflow_pool:
         random.shuffle(overflow_pool)
         sampled_reviews.extend(overflow_pool[:shortage])
-    
+
     # Shuffle to avoid grouping by rating
     random.shuffle(sampled_reviews)
-    
+
     return sampled_reviews
 
 
@@ -226,54 +224,49 @@ def transform_place_file(data, filepath):
         list: Flattened review records, empty list if transformation failed.
     """
     try:
-        place_info = data.get('place_info', {})
-        raw_reviews = data.get('reviews', [])
-        
+        place_info = data.get("place_info", {})
+        raw_reviews = data.get("reviews", [])
+
         # Extract and clean place metadata
-        place_name = clean_text(place_info.get('name', ''))
-        place_category = clean_text(place_info.get('category', ''))
-        place_address = clean_text(place_info.get('address', ''))
-        place_description = clean_text(place_info.get('description', ''))
-        place_attributes = clean_attributes(place_info.get('attributes', ''))
-        
+        place_name = clean_text(place_info.get("name", ""))
+        place_category = clean_text(place_info.get("category", ""))
+        place_address = clean_text(place_info.get("address", ""))
+        place_description = clean_text(place_info.get("description", ""))
+        place_attributes = clean_attributes(place_info.get("attributes", ""))
+
         # Parse numeric fields
         try:
-            place_avg_rating = float(
-                str(place_info.get('avg_rating', '0')).replace(',', '.')
-            )
+            place_avg_rating = float(str(place_info.get("avg_rating", "0")).replace(",", "."))
         except (ValueError, TypeError):
             place_avg_rating = 0.0
-        
-        place_total_reviews = parse_int_from_text(
-            place_info.get('total_reviews_text', '')
-        )
-        
+
+        place_total_reviews = parse_int_from_text(place_info.get("total_reviews_text", ""))
+
         # Process reviews
         unique_reviews = deduplicate_reviews(raw_reviews)
-        sampled_reviews = stratified_sample_reviews(
-            unique_reviews, 
-            MAX_REVIEWS_PER_PLACE
-        )
-        
+        sampled_reviews = stratified_sample_reviews(unique_reviews, MAX_REVIEWS_PER_PLACE)
+
         # Flatten to table format
         flattened_records = []
         for review in sampled_reviews:
-            flattened_records.append({
-                'user_id': review['clean_user_id'],
-                'user_rating': review.get('rating', 0),
-                'review_text': review['clean_text'],
-                'review_time': review['clean_time_iso'],
-                'place_name': place_name,
-                'place_description': place_description,
-                'place_category': place_category,
-                'place_attributes': place_attributes,
-                'place_address': place_address,
-                'place_total_reviews_gmaps': place_total_reviews,
-                'place_avg_rating': place_avg_rating
-            })
-        
+            flattened_records.append(
+                {
+                    "user_id": review["clean_user_id"],
+                    "user_rating": review.get("rating", 0),
+                    "review_text": review["clean_text"],
+                    "review_time": review["clean_time_iso"],
+                    "place_name": place_name,
+                    "place_description": place_description,
+                    "place_category": place_category,
+                    "place_attributes": place_attributes,
+                    "place_address": place_address,
+                    "place_total_reviews_gmaps": place_total_reviews,
+                    "place_avg_rating": place_avg_rating,
+                }
+            )
+
         return flattened_records
-    
+
     except Exception as e:
         print(f"   Warning: failed to TRANSFORM {os.path.basename(filepath)}: {e}")
         return []
@@ -288,15 +281,15 @@ def write_output(records):
         records (list): Flattened review records from all processed places.
     """
     df = pd.DataFrame(records)
-    
+
     # Reorder columns to the frozen schema
     available_columns = [col for col in FINAL_COLUMNS if col in df.columns]
     df = df[available_columns]
-    
+
     # Save to CSV
     ensure_dir(OUTPUT_DIR)
-    df.to_csv(OUTPUT_FILE, index=False, encoding='utf-8-sig')
-    
+    df.to_csv(OUTPUT_FILE, index=False, encoding="utf-8-sig")
+
     # Print summary
     print("\n" + "=" * 50)
     print("DATA PROCESSING COMPLETED!")
@@ -304,7 +297,7 @@ def write_output(records):
     print(f"Total reviews: {len(df)}")
     print("-" * 30)
     print("Rating Distribution:")
-    print(df['user_rating'].value_counts().sort_index())
+    print(df["user_rating"].value_counts().sort_index())
     print("=" * 50)
 
 
@@ -316,7 +309,7 @@ def process_all_files():
     Loads all JSON files, processes each place, and exports final dataset.
     """
     print("Starting data processing with balanced sampling...")
-    
+
     # Validate input folder before processing
     if not require_dir(INPUT_DIR):
         print(f"Error: Reviews JSON folder not found: {INPUT_DIR}")
@@ -324,22 +317,22 @@ def process_all_files():
 
     # Find all JSON files
     all_files = glob.glob(os.path.join(INPUT_DIR, "*.json"))
-    
+
     if not all_files:
         print("Error: No JSON files found.")
         return
-    
+
     print(f"Found {len(all_files)} place files.")
-    
+
     # Process all files
     all_records = []
-    
+
     for filepath in all_files:
         data = load_place_file(filepath)
         if data is None:
             continue
         all_records.extend(transform_place_file(data, filepath))
-    
+
     # Export to CSV
     if all_records:
         write_output(all_records)

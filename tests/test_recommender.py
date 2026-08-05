@@ -79,9 +79,7 @@ class GetRecommendationsTest(unittest.TestCase):
 
     def test_not_found_returns_none(self):
         df, cosine_sim, indices = build_model()
-        self.assertIsNone(
-            recommender_engine.get_recommendations("Tidak Ada Tempat Ini", cosine_sim, df, indices)
-        )
+        self.assertIsNone(recommender_engine.get_recommendations("Tidak Ada Tempat Ini", cosine_sim, df, indices))
 
     def test_partial_match_search_fallback(self):
         df, cosine_sim, indices = build_model()
@@ -121,8 +119,7 @@ class MainSmokeTest(unittest.TestCase):
         def fake_load():
             return pd.read_csv(FIXTURE_FILE)
 
-        with mock.patch.object(recommender_engine, "load_dataset", fake_load), \
-             redirect_stdout(io.StringIO()) as buf:
+        with mock.patch.object(recommender_engine, "load_dataset", fake_load), redirect_stdout(io.StringIO()) as buf:
             recommender_engine.main()
 
         output = buf.getvalue()
@@ -131,8 +128,7 @@ class MainSmokeTest(unittest.TestCase):
         self.assertIn("Table 4.7", output)
 
     def test_main_returns_early_when_dataset_unavailable(self):
-        with mock.patch.object(recommender_engine, "load_dataset", return_value=None), \
-             redirect_stdout(io.StringIO()):
+        with mock.patch.object(recommender_engine, "load_dataset", return_value=None), redirect_stdout(io.StringIO()):
             recommender_engine.main()  # must not raise
 
 

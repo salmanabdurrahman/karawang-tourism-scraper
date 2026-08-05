@@ -22,13 +22,69 @@ from typing import List
 
 # Custom stopwords (slang & common words in tourism reviews)
 CUSTOM_STOPWORDS = [
-    'yg', 'ga', 'gak', 'kalo', 'klo', 'sy', 'aku', 'saya', 'kamu', 'dia',
-    'ini', 'itu', 'di', 'ke', 'dari', 'dan', 'atau', 'tapi', 'jadi', 'jdi',
-    'bgt', 'banget', 'aja', 'saja', 'ada', 'buat', 'cuma', 'dgn', 'dg',
-    'sdh', 'sudah', 'blm', 'belum', 'dlu', 'dulu', 'deh', 'dong', 'kok',
-    'sih', 'nih', 'tuh', 'nya', 'dr', 'utk', 'untuk', 'sm', 'sama', 'banyak',
-    'tempat', 'wisata', 'nya', 'lagi', 'karena', 'sangat', 'agak', 'lumayan',
-    'ok', 'oke', 'bagus', 'keren', 'mantap', 'recommended', 'rekomen'
+    "yg",
+    "ga",
+    "gak",
+    "kalo",
+    "klo",
+    "sy",
+    "aku",
+    "saya",
+    "kamu",
+    "dia",
+    "ini",
+    "itu",
+    "di",
+    "ke",
+    "dari",
+    "dan",
+    "atau",
+    "tapi",
+    "jadi",
+    "jdi",
+    "bgt",
+    "banget",
+    "aja",
+    "saja",
+    "ada",
+    "buat",
+    "cuma",
+    "dgn",
+    "dg",
+    "sdh",
+    "sudah",
+    "blm",
+    "belum",
+    "dlu",
+    "dulu",
+    "deh",
+    "dong",
+    "kok",
+    "sih",
+    "nih",
+    "tuh",
+    "nya",
+    "dr",
+    "utk",
+    "untuk",
+    "sm",
+    "sama",
+    "banyak",
+    "tempat",
+    "wisata",
+    "nya",
+    "lagi",
+    "karena",
+    "sangat",
+    "agak",
+    "lumayan",
+    "ok",
+    "oke",
+    "bagus",
+    "keren",
+    "mantap",
+    "recommended",
+    "rekomen",
 ]
 
 _stopwords_set = None
@@ -45,6 +101,7 @@ def _get_stopwords_set() -> set:
     global _stopwords_set
     if _stopwords_set is None:
         from Sastrawi.StopWordRemover.StopWordRemoverFactory import StopWordRemoverFactory
+
         stopwords_indo = StopWordRemoverFactory().get_stop_words()
         stopwords_indo.extend(CUSTOM_STOPWORDS)
         _stopwords_set = set(stopwords_indo)
@@ -61,6 +118,7 @@ def _get_stemmer():
     global _stemmer
     if _stemmer is None:
         from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
+
         _stemmer = StemmerFactory().create_stemmer()
     return _stemmer
 
@@ -87,7 +145,7 @@ def clean_text(text: str) -> str:
         text = text.replace(artifact, "")
 
     # Normalize whitespace
-    text = re.sub(r'\s+', ' ', text).strip()
+    text = re.sub(r"\s+", " ", text).strip()
 
     return text
 
@@ -108,12 +166,12 @@ def clean_attributes(text: str) -> str:
         return ""
 
     text = clean_text(text)
-    items = text.split('|')
+    items = text.split("|")
 
     clean_items = []
     for item in items:
         # Remove leading non-alphanumeric characters
-        cleaned = re.sub(r'^[^a-zA-Z0-9]+', '', item).strip()
+        cleaned = re.sub(r"^[^a-zA-Z0-9]+", "", item).strip()
         if cleaned:
             clean_items.append(cleaned)
 
@@ -135,7 +193,7 @@ def anonymize_user(user_name: str) -> str:
         return "anonymous"
 
     user_name = user_name.strip().lower()
-    hash_object = hashlib.md5(user_name.encode('utf-8'))
+    hash_object = hashlib.md5(user_name.encode("utf-8"))
 
     return hash_object.hexdigest()[:10]
 
@@ -172,31 +230,31 @@ def convert_relative_time(text: str) -> str:
 
         # Hours
         elif "jam" in text:
-            match = re.search(r'(\d+)', text)
+            match = re.search(r"(\d+)", text)
             hours = int(match.group(1)) if match else 1
             delta = timedelta(hours=hours)
 
         # Days
         elif "hari" in text:
-            match = re.search(r'(\d+)', text)
+            match = re.search(r"(\d+)", text)
             days = int(match.group(1)) if match else 1
             delta = timedelta(days=days)
 
         # Weeks
         elif "minggu" in text:
-            match = re.search(r'(\d+)', text)
+            match = re.search(r"(\d+)", text)
             weeks = int(match.group(1)) if match else 1
             delta = timedelta(weeks=weeks)
 
         # Months (approximate: 30 days per month)
         elif "bulan" in text:
-            match = re.search(r'(\d+)', text)
+            match = re.search(r"(\d+)", text)
             months = int(match.group(1)) if match else 1
             delta = timedelta(days=months * 30)
 
         # Years (approximate: 365 days per year)
         elif "tahun" in text:
-            match = re.search(r'(\d+)', text)
+            match = re.search(r"(\d+)", text)
             years = int(match.group(1)) if match else 1
             delta = timedelta(days=years * 365)
 
@@ -220,7 +278,7 @@ def parse_int_from_text(text: str) -> int:
     if not isinstance(text, str):
         return 0
 
-    nums = re.sub(r'\D', '', text)
+    nums = re.sub(r"\D", "", text)
     return int(nums) if nums else 0
 
 
@@ -237,7 +295,7 @@ def sanitize_filename(filename: str) -> str:
     Returns:
         str: Sanitized filename (empty if only invalid characters).
     """
-    safe_chars = [c for c in filename if c.isalnum() or c in (' ', '-', '_')]
+    safe_chars = [c for c in filename if c.isalnum() or c in (" ", "-", "_")]
     return "".join(safe_chars).strip()
 
 
@@ -257,7 +315,7 @@ def clean_name_key(text: str) -> str:
     # Remove leftover artifacts from old scraping (if any)
     text = text.replace("óóä", "").replace("¬†", "")
     # Remove non-alphanumeric characters to make matching easier
-    text = re.sub(r'[^a-z0-9]', '', text)
+    text = re.sub(r"[^a-z0-9]", "", text)
     return text
 
 
@@ -281,13 +339,13 @@ def clean_display_name(text: str) -> str:
     text = text.replace("Óóä", "").replace("¬†", "")
 
     # Remove the words 'wisata' and 'karawang' (case insensitive)
-    text = re.sub(r'\b(wisata|karawang)\b', '', text, flags=re.IGNORECASE)
+    text = re.sub(r"\b(wisata|karawang)\b", "", text, flags=re.IGNORECASE)
 
     # Remove stray punctuation/digits at start or end of the string
-    text = re.sub(r'^[\W_]+|[\W_]+$', '', text)
+    text = re.sub(r"^[\W_]+|[\W_]+$", "", text)
 
     # Normalize whitespace
-    text = re.sub(r'\s+', ' ', text).strip()
+    text = re.sub(r"\s+", " ", text).strip()
 
     # Convert to Title Case
     return text.title()
@@ -308,11 +366,11 @@ def case_folding(text: str) -> str:
         return ""
     text = text.lower()
     # Remove digits
-    text = re.sub(r'\d+', '', text)
+    text = re.sub(r"\d+", "", text)
     # Remove symbols, punctuation, emoji (keep letters & spaces only)
-    text = re.sub(r'[^a-z\s]', '', text)
+    text = re.sub(r"[^a-z\s]", "", text)
     # Remove extra whitespace
-    text = re.sub(r'\s+', ' ', text).strip()
+    text = re.sub(r"\s+", " ", text).strip()
     return text
 
 
@@ -329,6 +387,7 @@ def tokenizing(text: str) -> List[str]:
     if not text:
         return []
     from nltk.tokenize import word_tokenize
+
     return word_tokenize(text)
 
 
@@ -360,6 +419,6 @@ def stemming(tokens: List[str]) -> List[str]:
         list of str: Stemmed tokens.
     """
     stemmer = _get_stemmer()
-    sentence = ' '.join(tokens)
+    sentence = " ".join(tokens)
     stemmed_sentence = stemmer.stem(sentence)
     return stemmed_sentence.split()
