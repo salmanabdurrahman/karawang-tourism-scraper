@@ -197,6 +197,10 @@ scrapers intentionally keep broad `except Exception` fallbacks and
 `datetime.now()`-based relative time conversion, which stricter rule sets
 would flag.
 
+CI (GitHub Actions, `.github/workflows/ci.yml`) runs lint + compile + the full
+test suite on every push to `main` and on pull requests, installing from
+`requirements.lock` for reproducibility.
+
 ## Notes
 
 - All paths and shared constants (timeouts, review limits, placeholder image URL, output folders, Google Maps selectors) live in `src/config.py`. Input files are validated before each script starts.
