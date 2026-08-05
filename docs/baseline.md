@@ -150,7 +150,7 @@ Distinct places: raw list 57; final dataset 55. Two places have no review JSON (
 - Anonymization: `md5(user_name.strip().lower())[:10]`; empty → `"anonymous"`.
 - Relative time conversion → `YYYY-MM-DD` (based on `datetime.now()` at run time).
 - Image placeholder: `https://via.placeholder.com/400x300?text=No+Image`.
-- TF-IDF: `analyzer='word'`, `ngram_range=(1,2)`, `min_df=2`, `max_df=0.85`, `max_features=10000`, `sublinear_tf=True`; dense similarity `linear_kernel`; top-10 recommendation results.
+- TF-IDF: `analyzer='word'`, `ngram_range=(1,2)`, `min_df=2`, `max_df=0.85`, `max_features=10000`, `sublinear_tf=False`; dense similarity `linear_kernel`; top-10 recommendation results. Linear TF follows the paper's standard TF formula; IDF smoothing and L2 normalization use scikit-learn defaults.
 - `get_recommendations()` result format: DataFrame with columns `place_name`, `place_category`, `place_avg_rating`, `similarity_score`, sorted by similarity descending.
 
 ## 6. Manual Entry Point Checklist
@@ -165,7 +165,7 @@ One-time prerequisites (run from the repository root, inside the project venv): 
 | 3    | `python src/gmaps_image_scraper.py`                                  | yes     | `data/processed/karawang_place_images.csv` (57 rows)                        |
 | 4    | `python src/merge_images_to_final.py`                                | no      | `data/processed/karawang_tourism_final_with_images.csv` (5.202 rows)        |
 | 5    | `NLTK_DISABLE_IMPORT_SECURITY=1 python src/prepare_content_based.py` | no      | `data/processed/karawang_places_content_based.csv` (55 rows) + NLP progress |
-| 6    | `python src/recommender_engine.py`                                   | no      | console: TF-IDF, similarity, recommendation demo                            |
+| 6    | `NLTK_DISABLE_IMPORT_SECURITY=1 python src/recommender_engine.py`    | no      | console: TF-IDF, similarity, keyword + similar-place demo                   |
 
 Non-network verification (contract + quality gates):
 
@@ -174,7 +174,8 @@ Non-network verification (contract + quality gates):
 
 The `NLTK_DISABLE_IMPORT_SECURITY=1` prefix is required for scripts that
 import NLTK when the venv lives inside the repo root (NLTK 3.10+ import
-block). The test suite sets it automatically.
+block). The content pipeline checks both `punkt` and `punkt_tab`; the test
+suite sets the environment variable automatically.
 
 ## 7. Baseline Anomalies & Risks
 

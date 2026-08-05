@@ -313,6 +313,20 @@ class ContentBasedContractTest(unittest.TestCase):
             self.assertEqual(list(df.columns), CONTENT_BASED_COLUMNS)
             self.assertEqual(list(df.columns), prepare_content_based.CONTENT_BASED_COLUMNS)
 
+    def test_nltk_resource_check_downloads_each_missing_resource(self):
+        with mock.patch.object(
+            prepare_content_based.nltk.data,
+            "find",
+            side_effect=[object(), LookupError("missing punkt_tab")],
+        ), mock.patch.object(prepare_content_based.nltk, "download", return_value=True) as download:
+            prepare_content_based.ensure_nltk_resources()
+
+        download.assert_called_once_with("punkt_tab")
+
+    def test_extract_place_record_rejects_invalid_place_metadata(self):
+        self.assertIsNone(prepare_content_based.extract_place_record({}, "empty.json"))
+        self.assertIsNone(prepare_content_based.extract_place_record({"place_info": {"name": ""}}, "unnamed.json"))
+
     def test_records_and_corpus(self):
         with tempfile.TemporaryDirectory() as tmp:
             out_file = self._run_pipeline(tmp)
@@ -324,6 +338,57 @@ class ContentBasedContractTest(unittest.TestCase):
             self.assertEqual(curug["total_reviews_scraped"], 10)
             self.assertEqual(curug["place_avg_rating"], 4.5)
             self.assertTrue(isinstance(curug["tags_corpus"], str) and curug["tags_corpus"])
+            # Place name now participates in the TF-IDF corpus.
+            self.assertIn("curug", curug["tags_corpus"])
+
+    def test_build_corpus_uses_paper_text_fields(self):
+        df = pd.DataFrame(
+            [
+                {
+                    "place_name": "Nama Tempat",
+                    "place_category": "Kategori",
+                    "raw_description": "Deskripsi",
+                    "raw_attributes": "Atribut: Ada | Fasilitas: Lengkap",
+                    "raw_reviews_combined": "Ulasan",
+                }
+            ]
+        )
+
+        corpus = prepare_content_based.build_corpus(df).iloc[0]["combined_text_raw"]
+
+        self.assertEqual(
+            corpus.split(),
+            ["Kategori", "Nama", "Tempat", "Deskripsi", "Atribut:", "Ada", "Fasilitas:", "Lengkap", "Ulasan"],
+        )
+
+    def test_corpus_review_selection_is_deduplicated_and_capped(self):
+        reviews = [{"user_name": "Duplicate", "rating": 5, "text": "Review berulang"}]
+        reviews.extend({"user_name": f"User {i}", "rating": 5, "text": f"Review unik {i}"} for i in range(160))
+        reviews.insert(1, reviews[0].copy())
+        reviews.append({"user_name": "Kosong", "rating": 5, "text": "   "})
+
+        selected = prepare_content_based.select_corpus_reviews(reviews)
+
+        self.assertEqual(len(selected), 150)
+        self.assertEqual(len(set(selected)), 150)
+        self.assertNotIn("", selected)
+        self.assertEqual(selected, prepare_content_based.select_corpus_reviews(reviews))
+        self.assertEqual(prepare_content_based.select_corpus_reviews([None, "bad"]), [])
+
+    def test_corpus_review_selection_balances_rating_buckets(self):
+        reviews = [
+            {"user_name": f"User {rating}-{i}", "rating": rating, "text": f"Rating {rating} review {i}"}
+            for rating in range(1, 6)
+            for i in range(10)
+        ]
+
+        selected = prepare_content_based.select_corpus_reviews(reviews, max_count=25)
+        ratings = [int(text.split()[1]) for text in selected]
+
+        self.assertEqual(len(selected), 25)
+        self.assertEqual(
+            {rating: ratings.count(rating) for rating in range(1, 6)}, {rating: 5 for rating in range(1, 6)}
+        )
 
 
 class RawAndImagesSchemaTest(unittest.TestCase):

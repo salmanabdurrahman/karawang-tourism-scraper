@@ -28,7 +28,9 @@ from utils import (
     clean_name_key,
     clean_text,
     convert_relative_time,
+    normalize_tokens,
     parse_int_from_text,
+    preprocess_text,
     remove_stopwords,
     sanitize_filename,
     stemming,
@@ -161,15 +163,20 @@ class NlpStepsTest(unittest.TestCase):
         self.assertEqual(tokenizing(""), [])
         self.assertEqual(tokenizing(None), [])
 
-    def test_remove_stopwords(self):
+    def test_normalize_tokens(self):
+        self.assertEqual(normalize_tokens(["tau", "buat", "yg", "air"]), ["tahu", "untuk", "yang", "air"])
+
+    def test_remove_stopwords_keeps_descriptive_terms(self):
         self.assertEqual(
-            remove_stopwords(["tempat", "wisata", "air", "sejuk"]),
-            ["air", "sejuk"],
+            remove_stopwords(["tempat", "wisata", "bagus", "air", "sejuk"]),
+            ["tempat", "bagus", "air", "sejuk"],
         )
-        # Custom tourism stopwords are part of the set
+        # Function words and slang remain excluded after normalization support.
         self.assertNotIn("yg", remove_stopwords(["yg"]))
-        self.assertNotIn("tempat", remove_stopwords(["tempat"]))
         self.assertEqual(remove_stopwords(["air"]), ["air"])
+
+    def test_preprocess_text_uses_reference_order(self):
+        self.assertEqual(preprocess_text("Tempatnya bagus, tau buat keluarga"), "tempat bagus tahu untuk keluarga")
 
     def test_stemming(self):
         self.assertEqual(stemming(["bermain"]), ["main"])

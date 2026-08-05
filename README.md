@@ -2,7 +2,7 @@
 
 This project is a web scraping and data processing tool designed to collect, process, and analyze tourism-related data for Karawang, Indonesia. It leverages Google Maps data to gather information about tourist destinations and user reviews, and organizes the data for further analysis or application use.
 
-The repository contains **7 scripts** organized into **3 pipelines**: a main review pipeline, an image pipeline, and a content-based recommendation pipeline. The data contracts (schemas, column order, placeholder, anonymization format) are frozen; see [docs/baseline.md](docs/baseline.md) for the full baseline and contract reference.
+The repository contains **7 pipeline scripts plus 1 optional evaluation utility** organized into **3 pipelines**: a main review pipeline, an image pipeline, and a content-based recommendation pipeline. The data contracts (schemas, column order, placeholder, anonymization format) are frozen; see [docs/baseline.md](docs/baseline.md) for the full baseline and contract reference.
 
 ## Project Structure
 
@@ -25,9 +25,11 @@ karawang-tourism-scraper/
 │   ├── process_gmaps_data.py        # Review processing → final dataset
 │   ├── merge_images_to_final.py     # Merge images into final dataset
 │   ├── prepare_content_based.py     # NLP preparation for recommendations
-│   └── recommender_engine.py        # TF-IDF + similarity recommendation demo
+│   ├── recommender_engine.py        # TF-IDF + similarity recommendation demo
+│   └── generate_paper_tables.py     # Optional Tables 7–12 evaluator
 ├── docs/
-│   └── baseline.md          # Baseline & contract freeze reference
+│   ├── baseline.md          # Baseline & contract freeze reference
+│   └── paper_evaluation.md  # Reproducible paper-table workflow
 ├── requirements.txt         # Python dependencies (version ranges)
 ├── requirements.lock        # Exact dependency snapshot (pip freeze)
 ├── requirements-dev.txt     # Dev tooling (ruff linter)
@@ -61,10 +63,15 @@ Scrape one image URL per place, then merge the image URLs into the final review 
 
 ```txt
 src/prepare_content_based.py ──> data/processed/karawang_places_content_based.csv
-src/recommender_engine.py ──> console output (demo + get_recommendations())
+src/recommender_engine.py ──> console output and recommendation functions
 ```
 
-Build a per-place corpus (category + attributes + description + all review texts) processed through case folding → tokenizing → stopword removal → stemming, then compute TF-IDF vectors and cosine similarity to produce top-10 place recommendations.
+Build one deterministic corpus per place from place name, category, attributes,
+description, and cleaned/deduplicated reviews. Text passes through case folding
+→ tokenizing → word normalization → stopword removal → stemming. The engine
+supports two modes: `get_keyword_recommendations()` ranks places against a
+free-text user query; `get_recommendations()` returns similar places for a
+selected destination. Details live in [docs/recommendation.md](docs/recommendation.md).
 
 ## Script Reference
 
@@ -76,7 +83,8 @@ Build a per-place corpus (category + attributes + description + all review texts
 | 4   | `src/gmaps_image_scraper.py`   | `data/raw/karawang_places_list.csv`                        | `data/processed/karawang_place_images.csv`              | yes (Playwright) | `scrape_images_only()`                |
 | 5   | `src/merge_images_to_final.py` | `karawang_tourism_final.csv` + `karawang_place_images.csv` | `data/processed/karawang_tourism_final_with_images.csv` | no               | `merge_data()`                        |
 | 6   | `src/prepare_content_based.py` | `data/reviews_json/V1/*.json`                              | `data/processed/karawang_places_content_based.csv`      | no               | `process_data()`                      |
-| 7   | `src/recommender_engine.py`    | `data/processed/karawang_places_content_based.csv`         | console (demo + `get_recommendations()`)                | no               | `main()` (import has no side effects) |
+| 7   | `src/recommender_engine.py`    | `data/processed/karawang_places_content_based.csv`         | console + keyword/similar-place recommendations         | no               | `main()` (import has no side effects) |
+| —   | `src/generate_paper_tables.py` | `karawang_places_content_based.csv`                        | `data/processed/paper_evaluation/` (optional)           | no               | `main()`                              |
 
 ## Output Dependencies
 
@@ -84,6 +92,7 @@ Build a per-place corpus (category + attributes + description + all review texts
 - Script 5 requires the outputs of scripts 3 and 4: `karawang_tourism_final.csv` and `karawang_place_images.csv`.
 - Script 6 consumes review JSON from `data/reviews_json/V1/`, not the root folder.
 - Script 7 requires the output of script 6 (`karawang_places_content_based.csv`).
+- Optional paper evaluation also consumes script 6 output and never changes the pipeline datasets.
 
 ## Data Folders
 
@@ -150,19 +159,34 @@ python src/gmaps_image_scraper.py
 # 5. Merge images into final dataset
 python src/merge_images_to_final.py
 
-# 6. Prepare content-based dataset (NLP, downloads NLTK punkt on first run)
+# 6. Prepare content-based dataset (NLP, downloads punkt/punkt_tab if missing)
 NLTK_DISABLE_IMPORT_SECURITY=1 python src/prepare_content_based.py
 
-# 7. Run recommendation demo (load → TF-IDF → similarity → demo)
-python src/recommender_engine.py
+# 7. Run recommendation demo (TF-IDF → similarity → demos)
+NLTK_DISABLE_IMPORT_SECURITY=1 python src/recommender_engine.py
 ```
 
 Pipeline order matters: run 1 → 2 → 3 for the main pipeline, 4 → 5 for images, 6 → 7 for recommendations.
 
+## Paper table evaluation (optional)
+
+After preparing the V1 content corpus, generate reproducible values for paper
+Tables 7–12:
+
+```bash
+NLTK_DISABLE_IMPORT_SECURITY=1 python src/generate_paper_tables.py
+```
+
+The command uses the paper profile (`sublinear_tf=False`, 55 destination
+corpus, query cutoffs K=8/K=6/K=7) and writes Markdown/CSV artifacts to
+`data/processed/paper_evaluation/`. See
+[docs/paper_evaluation.md](docs/paper_evaluation.md) for the step-by-step
+workflow and frozen manual relevance labels.
+
 ## Testing
 
-The test suite in `tests/` uses only the Python standard library (`unittest`),
-so no extra dependencies are needed. It never hits the network: scraper entry
+The test suite in `tests/` uses `unittest` plus project runtime dependencies
+(pandas, NumPy, scikit-learn, NLTK, Sastrawi). It never hits the network: scraper entry
 points are smoke-tested on their missing-input paths, extraction logic runs
 against a fake Playwright page, and the processing pipelines run end-to-end on
 small fixtures inside temporary directories.
@@ -215,8 +239,9 @@ test suite on every push to `main` and on pull requests, installing from
 - `src/utils.py` holds the pure text/domain helpers (text cleaning, anonymization, relative-time parsing, name normalization, NLP steps). Importing it has no side effects; nltk/Sastrawi are imported lazily on first use.
 - The `data/` and `venv/` folders are excluded from version control via `.gitignore`.
 - `process_gmaps_data.py` samples up to 150 reviews per place with stratified sampling per rating (no random seed → output is not deterministic between runs).
-- `recommender_engine.py` runs its workflow (load → TF-IDF → similarity → demo) from `main()`; importing the module has no side effects.
-- `prepare_content_based.py` checks/downloads NLTK `punkt` at processing start (not at import time); Sastrawi is initialized lazily on first use.
+- `recommender_engine.py` keeps place-to-place recommendations backward compatible and adds keyword-to-place ranking through `get_keyword_recommendations()`; importing the module has no side effects.
+- `prepare_content_based.py` deduplicates and caps corpus reviews at 150 per place, then applies the five-stage NLP pipeline described in the paper.
+- `prepare_content_based.py` checks/downloads NLTK `punkt` and `punkt_tab` at processing start (not at import time); Sastrawi is initialized lazily on first use.
 - Make sure you have a stable internet connection for scraping Google Maps.
 - Review scraping may be subject to Google Maps rate limits and anti-bot measures.
 - See `docs/baseline.md` for the frozen data contracts: CSV/JSON schemas, column order, encodings, placeholder, anonymization format, and dataset row counts (snapshot).
@@ -228,7 +253,7 @@ test suite on every push to `main` and on pull requests, installing from
 - pandas — CSV/DataFrame processing
 - numpy — vectorized math in the recommendation engine
 - scikit-learn — TF-IDF vectorization and cosine similarity
-- nltk — tokenization (`punkt`) in the NLP pipeline
+- nltk — tokenization (`punkt` and `punkt_tab`) in the NLP pipeline
 - Sastrawi — Indonesian stopword removal and stemming
 - ruff (dev only) — linter, see `requirements-dev.txt`
 

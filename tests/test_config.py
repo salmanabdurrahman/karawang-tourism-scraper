@@ -49,6 +49,10 @@ class OutputFileNamesTest(unittest.TestCase):
             config.CONTENT_BASED_FILE,
             os.path.join(config.PROCESSED_DIR, "karawang_places_content_based.csv"),
         )
+        self.assertEqual(
+            config.PAPER_EVALUATION_DIR,
+            os.path.join(config.PROCESSED_DIR, "paper_evaluation"),
+        )
 
     def test_scraper_output_resolves_to_canonical_name(self):
         # gmaps_scraper names its output from the query slug; the compatibility
@@ -88,7 +92,7 @@ class FrozenConstantsTest(unittest.TestCase):
                 "min_df": 2,
                 "max_df": 0.85,
                 "max_features": 10000,
-                "sublinear_tf": True,
+                "sublinear_tf": False,
             },
         )
         self.assertEqual(recommender_engine.TOP_N, 10)

@@ -28,6 +28,7 @@ TOURISM_FINAL_FILE = os.path.join(PROCESSED_DIR, "karawang_tourism_final.csv")
 PLACE_IMAGES_FILE = os.path.join(PROCESSED_DIR, "karawang_place_images.csv")
 TOURISM_FINAL_WITH_IMAGES_FILE = os.path.join(PROCESSED_DIR, "karawang_tourism_final_with_images.csv")
 CONTENT_BASED_FILE = os.path.join(PROCESSED_DIR, "karawang_places_content_based.csv")
+PAPER_EVALUATION_DIR = os.path.join(PROCESSED_DIR, "paper_evaluation")
 
 # ---------------------------------------------------------------- compatibility mapping
 # gmaps_scraper names its output from the query slug (<query_slug>_places_list.csv),

@@ -3,13 +3,14 @@ Prepare Content-Based Dataset
 
 This script builds the corpus for the content-based recommender by loading V1
 review JSON files, combining place metadata and review texts, and running an
-Indonesian NLP pipeline (case folding, tokenizing, stopword removal, stemming
-with Sastrawi) to produce a cleaned tags corpus per place.
+Indonesian NLP pipeline (case folding, tokenizing, normalization, stopword
+removal, stemming with Sastrawi) to produce a cleaned tags corpus per place.
 
 Features:
     - Loads and flattens V1 JSON review files
-    - Combines category, attributes, description, and reviews into one corpus
-    - Runs a 4-stage Indonesian NLP pipeline (Sastrawi)
+    - Deduplicates and caps review text used by each place corpus
+    - Combines place name, category, attributes, description, and reviews
+    - Runs the five-stage Indonesian NLP pipeline described in the paper
     - Exports a tags corpus per place
 
 Output:
@@ -34,6 +35,7 @@ import pandas as pd
 
 from config import (
     CONTENT_BASED_FILE,
+    MAX_SAMPLE_REVIEWS_PER_PLACE,
     PROCESSED_DIR,
     REVIEWS_JSON_V1_DIR,
     ensure_dir,
@@ -41,6 +43,8 @@ from config import (
 )
 from utils import (
     case_folding,
+    clean_text,
+    normalize_tokens,
     remove_stopwords,
     stemming,
     tokenizing,
@@ -67,17 +71,24 @@ CONTENT_BASED_COLUMNS = [
 # NLP Resources (checked at processing time, not at import time)
 def ensure_nltk_resources():
     """
-    Checks that NLTK punkt resources exist and downloads them if missing.
+    Checks both tokenizer resources required by the installed NLTK version.
 
-    Runs at the start of processing so importing this module has no side
-    effects (no downloads, no filesystem writes).
+    Runs during processing so importing this module has no side effects. Each
+    resource is checked independently because ``punkt`` may already exist while
+    ``punkt_tab`` is missing on newer NLTK versions.
     """
-    try:
-        nltk.data.find("tokenizers/punkt")
-    except LookupError:
-        print("Downloading NLTK resources...")
-        nltk.download("punkt")
-        nltk.download("punkt_tab")
+    resources = {
+        "tokenizers/punkt": "punkt",
+        "tokenizers/punkt_tab": "punkt_tab",
+    }
+
+    for resource_path, package_name in resources.items():
+        try:
+            nltk.data.find(resource_path)
+        except LookupError:
+            print(f"Downloading NLTK resource: {package_name}...")
+            if not nltk.download(package_name):
+                raise RuntimeError(f"Unable to download required NLTK resource: {package_name}")
 
 
 # File Loading
@@ -100,6 +111,71 @@ def load_place_file(filepath):
 
 
 # Transformation
+def select_corpus_reviews(raw_reviews, max_count=MAX_SAMPLE_REVIEWS_PER_PLACE):
+    """
+    Cleans, deduplicates, and deterministically caps reviews for one corpus.
+
+    The recommendation corpus must not let places with more scraped reviews
+    dominate the vector space. The selection keeps up to the same 150-review
+    per-place cap used by the main processing pipeline, while remaining
+    deterministic for reproducible model evaluation. When a place has more
+    reviews than the cap, the first target from each rating bucket is kept,
+    then remaining slots are filled in source order.
+
+    Args:
+        raw_reviews (list): Raw review dictionaries from one JSON file.
+        max_count (int): Maximum number of review texts to retain.
+
+    Returns:
+        list of str: Cleaned, unique review texts selected for the corpus.
+    """
+    if max_count <= 0:
+        return []
+
+    unique_reviews = []
+    seen_signatures = set()
+    buckets = {1: [], 2: [], 3: [], 4: [], 5: [], 0: []}
+
+    for review in raw_reviews or []:
+        if not isinstance(review, dict):
+            continue
+
+        text = clean_text(review.get("text", ""))
+        if not text:
+            continue
+
+        user_name = clean_text(review.get("user_name", "")).strip().casefold()
+        signature = (user_name, text.casefold())
+        if signature in seen_signatures:
+            continue
+        seen_signatures.add(signature)
+
+        try:
+            rating = int(review.get("rating", 0))
+        except (TypeError, ValueError):
+            rating = 0
+        if rating not in buckets:
+            rating = 0
+
+        record_index = len(unique_reviews)
+        unique_reviews.append(text)
+        buckets[rating].append(record_index)
+
+    if len(unique_reviews) <= max_count:
+        return unique_reviews
+
+    target_per_rating = max_count // 5
+    selected_indices = []
+    for rating in range(1, 6):
+        selected_indices.extend(buckets[rating][:target_per_rating])
+
+    selected_set = set(selected_indices)
+    remaining_indices = [i for i in range(len(unique_reviews)) if i not in selected_set]
+    selected_indices.extend(remaining_indices[: max_count - len(selected_indices)])
+
+    return [unique_reviews[i] for i in selected_indices]
+
+
 def extract_place_record(data, filepath):
     """
     Extracts place metadata and combined review text from one JSON file.
@@ -112,11 +188,21 @@ def extract_place_record(data, filepath):
         dict: Raw place record, or None if transformation failed.
     """
     try:
+        if not isinstance(data, dict):
+            return None
+
         p_info = data.get("place_info", {})
+        if not isinstance(p_info, dict):
+            return None
+
+        p_name = p_info.get("name", "")
+        if not isinstance(p_name, str) or not p_name.strip():
+            print(f"   Skipping place without a valid name: {os.path.basename(filepath)}")
+            return None
+
         reviews = data.get("reviews", [])
 
         # Grab Place Metadata
-        p_name = p_info.get("name", "")
         p_cat = p_info.get("category", "")
         p_desc = p_info.get("description", "")
         p_attr = p_info.get("attributes", "")
@@ -127,8 +213,10 @@ def extract_place_record(data, filepath):
         except (ValueError, TypeError):
             p_rating = 0.0
 
-        # Combine ALL review texts into one long string
-        all_review_text = " ".join([r.get("text", "") for r in reviews if r.get("text")])
+        # Use cleaned, deduplicated, capped reviews so review volume does not
+        # dominate the destination's metadata in TF-IDF.
+        selected_review_texts = select_corpus_reviews(reviews)
+        all_review_text = " ".join(selected_review_texts)
 
         return {
             "place_name": p_name,
@@ -148,7 +236,7 @@ def extract_place_record(data, filepath):
 
 def build_corpus(df):
     """
-    Combines category, attributes, description, and reviews into one raw column.
+    Combines the paper's text fields into one raw column.
 
     Args:
         df (pandas.DataFrame): Raw place records.
@@ -158,14 +246,17 @@ def build_corpus(df):
     """
     print("\nCombining all texts (Metadata + Reviews)...")
 
-    # Combine Category + Attributes + Description + Reviews into one raw column
+    # Combine Category + Name + Description + Attributes + Reviews into one
+    # raw column, matching the fields described in the reference paper.
     df = df.copy()
     df["combined_text_raw"] = (
         df["place_category"].fillna("")
         + " "
-        + df["raw_attributes"].str.replace("|", " ").fillna("")
+        + df["place_name"].fillna("")
         + " "
         + df["raw_description"].fillna("")
+        + " "
+        + df["raw_attributes"].fillna("").str.replace("|", " ", regex=False)
         + " "
         + df["raw_reviews_combined"].fillna("")
     )
@@ -175,8 +266,8 @@ def build_corpus(df):
 
 def apply_nlp_pipeline(df):
     """
-    Runs the 4-stage NLP pipeline (case folding, tokenizing, stopword removal,
-    stemming) and builds the final tags corpus.
+    Runs the five-stage NLP pipeline (case folding, tokenizing, normalization,
+    stopword removal, stemming) and builds the final tags corpus.
 
     Args:
         df (pandas.DataFrame): Records with combined_text_raw.
@@ -194,17 +285,21 @@ def apply_nlp_pipeline(df):
     print("   2. Tokenizing...")
     df["step2"] = df["step1"].apply(tokenizing)
 
-    # 3. Stopword Removal
-    print("   3. Stopword Removal...")
-    df["step3"] = df["step2"].apply(remove_stopwords)
+    # 3. Word Normalization
+    print("   3. Word Normalization...")
+    df["step3"] = df["step2"].apply(normalize_tokens)
 
-    # 4. Stemming (heaviest step, be patient)
-    print("   4. Stemming (be patient, this is the heaviest step)...")
+    # 4. Stopword Removal
+    print("   4. Stopword Removal...")
+    df["step4"] = df["step3"].apply(remove_stopwords)
+
+    # 5. Stemming (heaviest step, be patient)
+    print("   5. Stemming (be patient, this is the heaviest step)...")
 
     total = len(df)
     stemmed_results = []
 
-    for i, tokens in enumerate(df["step3"]):
+    for i, tokens in enumerate(df["step4"]):
         # Simple progress bar
         percent = int(((i + 1) / total) * 100)
         if (i + 1) % 5 == 0 or i == 0 or i == total - 1:
@@ -215,10 +310,10 @@ def apply_nlp_pipeline(df):
 
     print("\n      Done!")
 
-    df["step4"] = stemmed_results
+    df["step5"] = stemmed_results
 
     # Join back into the final string (Corpus)
-    df["tags_corpus"] = df["step4"].apply(lambda x: " ".join(x))
+    df["tags_corpus"] = df["step5"].apply(lambda x: " ".join(x))
 
     return df
 
@@ -234,15 +329,18 @@ def write_output(df):
     df_final = df[CONTENT_BASED_COLUMNS]
 
     ensure_dir(OUTPUT_DIR)
-    df_final.to_csv(OUTPUT_FILE, index=False)
+    df_final.to_csv(OUTPUT_FILE, index=False, encoding="utf-8")
 
     print("\n" + "=" * 50)
     print("DATA PREPARATION DONE!")
     print(f"Output: {OUTPUT_FILE}")
     print("-" * 30)
     if not df_final.empty:
-        print("Sample 'tags_corpus' (Final Output):")
-        print(str(df_final["tags_corpus"].iloc[0])[:150] + "...")
+        corpus_lengths = df_final["tags_corpus"].fillna("").astype(str).str.len()
+        print(
+            "Corpus character lengths: "
+            f"min={corpus_lengths.min()}, median={corpus_lengths.median():.0f}, max={corpus_lengths.max()}"
+        )
     print("=" * 50)
 
 
@@ -255,19 +353,20 @@ def process_data():
     """
     print("STARTING CONTENT-BASED DATA PREPARATION (JSON SOURCE)...")
 
-    # NLTK resources are checked here, at processing time (not at import time)
-    ensure_nltk_resources()
-
     # --- A. LOAD JSON DATA & FLATTEN ---
     if not require_dir(INPUT_DIR):
         print(f"Input folder not found: {INPUT_DIR}")
         return
 
-    all_files = glob.glob(os.path.join(INPUT_DIR, "*.json"))
+    # Sort paths so corpus row order remains reproducible across filesystems.
+    all_files = sorted(glob.glob(os.path.join(INPUT_DIR, "*.json")))
 
     if not all_files:
         print(f"No JSON files found in {INPUT_DIR}")
         return
+
+    # NLTK resources are checked here, after input validation and before NLP.
+    ensure_nltk_resources()
 
     print(f"Processing {len(all_files)} JSON files...")
 
@@ -281,13 +380,17 @@ def process_data():
         if record is not None:
             places_data.append(record)
 
+    if not places_data:
+        print("No valid place records found; content-based output was not written.")
+        return
+
     df = pd.DataFrame(places_data)
     print(f"Total places loaded: {len(df)}")
 
     # --- B. PREPARE RAW CORPUS ---
     df = build_corpus(df)
 
-    # --- C. NLP PIPELINE (4 STAGES) ---
+    # --- C. NLP PIPELINE (5 STAGES) ---
     df = apply_nlp_pipeline(df)
 
     # --- D. SAVE RESULTS ---

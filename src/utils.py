@@ -5,7 +5,8 @@ Small text/domain helpers extracted from the pipeline scripts so they can be
 imported and tested independently. Importing this module has no side effects:
 Sastrawi factories and the stopword set are built lazily on first use.
 
-Behavior matches the baseline locked in docs/baseline.md.
+Text helpers preserve existing data contracts while exposing the shared NLP
+pipeline used by the content-based recommender.
 
 Author: Salman Abdurrahman
 Date: 2025
@@ -87,8 +88,48 @@ CUSTOM_STOPWORDS = [
     "rekomen",
 ]
 
+# The paper's normalization examples include these forms. The mapping also
+# covers common Indonesian review abbreviations so documents and user queries
+# pass through exactly the same normalization step.
+WORD_NORMALIZATION = {
+    "tau": "tahu",
+    "buat": "untuk",
+    "yg": "yang",
+    "ga": "tidak",
+    "gak": "tidak",
+    "kalo": "kalau",
+    "klo": "kalau",
+    "sy": "saya",
+    "jdi": "jadi",
+    "bgt": "banget",
+    "dgn": "dengan",
+    "dg": "dengan",
+    "sdh": "sudah",
+    "blm": "belum",
+    "dlu": "dulu",
+    "dr": "dari",
+    "utk": "untuk",
+    "sm": "sama",
+}
+
+# Sastrawi's default list contains several useful descriptive terms. Keep
+# those terms so TF-IDF can use them as content signals, matching the paper's
+# examples where words such as "bagus", "banyak", "tempat", and "untuk"
+# remain after stopword removal.
+CONTENT_WORDS_TO_KEEP = {
+    "bagus",
+    "banyak",
+    "tempat",
+    "untuk",
+    "keren",
+    "mantap",
+    "recommended",
+    "rekomen",
+}
+
 _stopwords_set = None
 _stemmer = None
+_stem_cache = {}
 
 
 def _get_stopwords_set() -> set:
@@ -102,9 +143,10 @@ def _get_stopwords_set() -> set:
     if _stopwords_set is None:
         from Sastrawi.StopWordRemover.StopWordRemoverFactory import StopWordRemoverFactory
 
-        stopwords_indo = StopWordRemoverFactory().get_stop_words()
-        stopwords_indo.extend(CUSTOM_STOPWORDS)
-        _stopwords_set = set(stopwords_indo)
+        stopwords_indo = set(StopWordRemoverFactory().get_stop_words())
+        stopwords_indo.update(CUSTOM_STOPWORDS)
+        stopwords_indo.difference_update(CONTENT_WORDS_TO_KEEP)
+        _stopwords_set = stopwords_indo
     return _stopwords_set
 
 
@@ -391,12 +433,26 @@ def tokenizing(text: str) -> List[str]:
     return word_tokenize(text)
 
 
-def remove_stopwords(tokens: List[str]) -> List[str]:
+def normalize_tokens(tokens: List[str]) -> List[str]:
     """
-    Removes Indonesian stopwords (Sastrawi base + custom tourism words).
+    Normalizes Indonesian spelling variants and common review abbreviations.
 
     Args:
-        tokens (list of str): Tokenized words.
+        tokens (list of str): Case-folded tokens.
+
+    Returns:
+        list of str: Tokens translated through ``WORD_NORMALIZATION`` when a
+        mapping exists.
+    """
+    return [WORD_NORMALIZATION.get(token, token) for token in tokens]
+
+
+def remove_stopwords(tokens: List[str]) -> List[str]:
+    """
+    Removes Indonesian stopwords while retaining descriptive content terms.
+
+    Args:
+        tokens (list of str): Normalized tokens.
 
     Returns:
         list of str: Tokens without stopwords.
@@ -407,10 +463,11 @@ def remove_stopwords(tokens: List[str]) -> List[str]:
 
 def stemming(tokens: List[str]) -> List[str]:
     """
-    Stems tokens using Sastrawi.
+    Stems tokens using Sastrawi with a process-local token cache.
 
-    Joins tokens into a sentence first so Sastrawi processes context more
-    efficiently, then splits the stemmed sentence back into tokens.
+    Stemming each token preserves the output of Sastrawi for this word-level
+    pipeline while avoiding repeated work across review documents. The cache
+    is built lazily, so importing this module remains side-effect free.
 
     Args:
         tokens (list of str): Tokens to stem.
@@ -418,7 +475,33 @@ def stemming(tokens: List[str]) -> List[str]:
     Returns:
         list of str: Stemmed tokens.
     """
+    global _stem_cache
     stemmer = _get_stemmer()
-    sentence = " ".join(tokens)
-    stemmed_sentence = stemmer.stem(sentence)
-    return stemmed_sentence.split()
+    stemmed_tokens = []
+
+    for token in tokens:
+        if token not in _stem_cache:
+            _stem_cache[token] = stemmer.stem(token)
+        stemmed_tokens.append(_stem_cache[token])
+
+    return stemmed_tokens
+
+
+def preprocess_text(text: str) -> str:
+    """
+    Runs the shared Indonesian preprocessing pipeline for documents and queries.
+
+    The order follows the reference paper: case folding, tokenizing, word
+    normalization, stopword removal, and stemming.
+
+    Args:
+        text (str): Raw document or user query.
+
+    Returns:
+        str: Space-separated stemmed tokens.
+    """
+    folded = case_folding(text)
+    tokens = tokenizing(folded)
+    tokens = normalize_tokens(tokens)
+    tokens = remove_stopwords(tokens)
+    return " ".join(stemming(tokens))
