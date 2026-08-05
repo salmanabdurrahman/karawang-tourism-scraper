@@ -27,23 +27,23 @@ RECOMMENDATION PIPELINE
   (input: karawang_places_content_based.csv)
 ```
 
-| #   | Script                         | Input                                                                     | Output                                                  | Network          | Entry                             |
-| --- | ------------------------------ | ------------------------------------------------------------------------- | ------------------------------------------------------- | ---------------- | --------------------------------- |
-| 1   | `src/gmaps_scraper.py`         | query `"Tempat Wisata di Karawang"`                                       | `data/raw/<slug>_places_list.csv`                       | yes (Playwright) | `scrape_gmaps_places()`           |
-| 2   | `src/gmaps_reviews_scraper.py` | `data/raw/karawang_places_list.csv`                                       | `data/reviews_json/<name>.json`                         | yes (Playwright) | `scrape_all_reviews()`            |
-| 3   | `src/process_gmaps_data.py`    | `data/reviews_json/*.json`                                                | `data/processed/karawang_tourism_final.csv`             | no               | `process_all_files()`             |
-| 4   | `src/gmaps_image_scraper.py`   | `data/raw/karawang_places_list.csv`                                       | `data/processed/karawang_place_images.csv`              | yes (Playwright) | `scrape_images_only()`            |
-| 5   | `src/merge_images_to_final.py` | `data/processed/karawang_tourism_final.csv` + `karawang_place_images.csv` | `data/processed/karawang_tourism_final_with_images.csv` | no               | `merge_data()`                    |
-| 6   | `src/prepare_content_based.py` | `data/reviews_json/v1/*.json`                                             | `data/processed/karawang_places_content_based.csv`      | no               | `process_data()`                  |
-| 7   | `src/recommender_engine.py`    | `data/processed/karawang_places_content_based.csv`                        | console (demo + `get_recommendations()`)                | no               | import-time (no `__main__` guard) |
+| #   | Script                         | Input                                                                     | Output                                                                            | Network          | Entry                              |
+| --- | ------------------------------ | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ---------------- | ---------------------------------- |
+| 1   | `src/gmaps_scraper.py`         | query `"Tempat Wisata di Karawang"`                                       | `data/raw/karawang_places_list.csv` (canonical, via `RAW_CSV_NAME_COMPATIBILITY`) | yes (Playwright) | `scrape_gmaps_places()`            |
+| 2   | `src/gmaps_reviews_scraper.py` | `data/raw/karawang_places_list.csv`                                       | `data/reviews_json/<name>.json`                                                   | yes (Playwright) | `scrape_all_reviews()`             |
+| 3   | `src/process_gmaps_data.py`    | `data/reviews_json/*.json`                                                | `data/processed/karawang_tourism_final.csv`                                       | no               | `process_all_files()`              |
+| 4   | `src/gmaps_image_scraper.py`   | `data/raw/karawang_places_list.csv`                                       | `data/processed/karawang_place_images.csv`                                        | yes (Playwright) | `scrape_images_only()`             |
+| 5   | `src/merge_images_to_final.py` | `data/processed/karawang_tourism_final.csv` + `karawang_place_images.csv` | `data/processed/karawang_tourism_final_with_images.csv`                           | no               | `merge_data()`                     |
+| 6   | `src/prepare_content_based.py` | `data/reviews_json/V1/*.json`                                             | `data/processed/karawang_places_content_based.csv`                                | no               | `process_data()`                   |
+| 7   | `src/recommender_engine.py`    | `data/processed/karawang_places_content_based.csv`                        | console (demo + `get_recommendations()`)                                          | no               | `main()` (import side-effect free) |
 
 Important notes:
 
-- Scripts 1–2 use relative paths (`data/...`), **must be run from the project root**. Scripts 3–7 use `BASE_DIR` based on file location, safe from any working directory.
-- Script 7 (`recommender_engine.py`) has no `if __name__ == "__main__"`: the whole process (data load, TF-IDF, similarity, demo) runs at import time.
-- Script 6 downloads/checks NLTK `punkt` and initializes Sastrawi at import time (not inside the processing function).
+- All scripts resolve paths via `src/config.py` (`BASE_DIR`), safe from any working directory.
+- Every script has an `if __name__ == "__main__"` guard; importing any module is side-effect free.
+- Script 6 checks/downloads NLTK `punkt` and `punkt_tab` inside `process_data()`; Sastrawi is initialized lazily on first use.
 
-**Refactor status:** the observations above describe the pre-refactor state and no longer hold. Current behavior after the cleanup (phases 2–6):
+**Refactor history:** the table and notes above now describe current behavior. The pre-refactor state and how the cleanup (phases 2–6) changed it:
 
 | Baseline observation                                                  | Current behavior                                                                                 |
 | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
@@ -192,6 +192,8 @@ Each anomaly keeps its original baseline wording; status notes mark observations
 5. **Random sampling without seed** and **`review_time` depending on the run date** → output diffs between runs are expected; baseline comparison must use columns/schema/count, not identical row contents.
    - **Status: still valid by design.** Sampling stays unseeded (frozen contract).
 6. **4 scripts are not tracked by git** (`gmaps_image_scraper.py`, `merge_images_to_final.py`, `prepare_content_based.py`, `recommender_engine.py`), so `git diff` will not detect changes to those files.
-   - **Status: still valid.** The refactor added more untracked files (`src/browser.py`, `src/config.py`, `src/utils.py`, `tests/`, `docs/`, ...); commit them once the repository cleanup is accepted.
+   - **Status: resolved.** All source, test, docs, CI, and dependency files are tracked now (see `git ls-files`); only `TODOS.md` remains untracked.
 7. **`data/` is gitignored** (`data`, `venv`) → this document's baseline is the only dataset reference stored in the repo.
    - **Status: still valid.** `.gitignore` also covers `__pycache__/`, `nltk_data/`, `.DS_Store`, `.env`, and `.pi/`.
+8. **Legacy `data/reviews/` root exports no longer match the §4 baseline count**: the snapshot froze 13 files / 94.114 rows (min 351 / max 11.019 per file); the current files total 2.154 rows (min 14 / max 200 per file — capped exports).
+   - **Status: observed; contract unchanged.** These legacy CSVs are produced by no current script and consumed by none (§2.3), so the frozen §4 count stays as the historical snapshot. Do not wire them into the pipeline.

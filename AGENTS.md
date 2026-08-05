@@ -7,7 +7,8 @@ global/system rules (safety, approvals, secrets, tool gates) — those always wi
 ## 1. What this project is
 
 Python 3.8+ scraping & data-processing tool for Karawang (Indonesia) tourism data, sourced
-from Google Maps. **7 scripts, 3 pipelines**:
+from Google Maps. **7 pipeline scripts in 3 pipelines, plus 1 optional evaluation
+utility**, plus shared helper modules (`config.py`, `utils.py`, `browser.py`):
 
 | Pipeline                | Scripts                                                                   | Entry points                                                           |
 | ----------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
@@ -15,7 +16,7 @@ from Google Maps. **7 scripts, 3 pipelines**:
 | Image                   | `gmaps_image_scraper.py` → `merge_images_to_final.py`                     | `scrape_images_only()`, `merge_data()`                                 |
 | Recommendation          | `prepare_content_based.py` → `recommender_engine.py`                      | `process_data()`, `get_recommendations()`                              |
 
-Dependencies: Playwright (Chromium), pandas, numpy, scikit-learn, nltk, Sastrawi, requests.
+Dependencies: Playwright (Chromium), pandas, numpy, scikit-learn, nltk, Sastrawi (see `requirements.txt`).
 
 ## 2. Non-negotiable rules
 
@@ -33,7 +34,8 @@ Dependencies: Playwright (Chromium), pandas, numpy, scikit-learn, nltk, Sastrawi
    from the query slug; consumers use the canonical `karawang_places_list.csv`. If
    `SEARCH_QUERY` changes, add a new mapping entry — do not rename files ad hoc.
 5. **Pipeline order is fixed:** 1 → 2 → 3 (main), 4 → 5 (images), 6 → 7 (recommendations).
-   Never reorder or skip validation steps.
+   Never reorder or skip validation steps. `generate_paper_tables.py` is optional, runs
+   after 7, and only consumes script 6's output — it never feeds the pipeline.
 6. **No import-time side effects.** `recommender_engine.py` runs its whole workflow
    (load → TF-IDF → similarity → demo) from `main()`, and `prepare_content_based.py`
    checks/downloads NLTK `punkt` inside `process_data()`. Importing any module must
@@ -54,9 +56,10 @@ Dependencies: Playwright (Chromium), pandas, numpy, scikit-learn, nltk, Sastrawi
   (e.g. `python src/process_gmaps_data.py`, `python src/merge_images_to_final.py`).
   For network scripts (`*_scraper.py`), confirm with the user before running — they launch
   a visible Playwright browser, hit Google Maps, and are subject to rate limits.
-- No test suite exists yet. If you add logic, write it as functions that are testable
-  without network access; adding a small `tests/` harness is welcome but keep it optional
-  and dependency-light.
+- Test suite lives in `tests/` (unittest, no network, dependency-light, runnable from any
+  working directory): `python -m unittest discover -s tests`. Contract tests re-check the
+  frozen schemas and row counts whenever real `data/` is present (auto-skip otherwise).
+  Add tests for new logic; keep them network-free.
 - Do not modify `docs/baseline.md` row counts or schemas from observation of newer data;
   that file is a snapshot/contract, not a live report.
 
@@ -90,7 +93,14 @@ src/gmaps_image_scraper.py          # [network] images → data/processed/karawa
 src/merge_images_to_final.py        # final + images → ..._with_images.csv
 src/prepare_content_based.py        # reviews_json/V1 → ..._content_based.csv
 src/recommender_engine.py           # content-based → console demo / get_recommendations()
+src/utils.py                        # pure text/domain helpers (cleaning, anonymization, NLP)
+src/browser.py                      # shared Playwright browser lifecycle (context manager)
+src/generate_paper_tables.py        # optional: paper Tables 7–12 evaluator (no network)
 docs/baseline.md                    # FROZEN contracts & snapshot counts
+docs/recommendation.md              # content-based model & evaluation guidance
+docs/paper_evaluation.md            # reproducible Tables 7–12 workflow
+tests/                              # unittest suite (no network) + fixtures
+pyproject.toml / requirements*.txt  # ruff config; deps (requirements.lock = exact snapshot)
 ```
 
 Key gotchas:

@@ -10,7 +10,8 @@ The repository contains **7 pipeline scripts plus 1 optional evaluation utility*
 karawang-tourism-scraper/
 ├── data/
 │   ├── processed/           # Active processed datasets (CSV)
-│   │   └── percobaan/       # Experiment datasets (not used by pipeline)
+│   │   ├── percobaan/       # Experiment datasets (not used by pipeline)
+│   │   └── paper_evaluation/ # Optional Tables 7–12 artifacts
 │   ├── raw/                 # Raw place list (CSV)
 │   ├── reviews_json/        # Scraped reviews (JSON), one file per place
 │   │   └── V1/              # Archived full review set (source for recommendation prep)
