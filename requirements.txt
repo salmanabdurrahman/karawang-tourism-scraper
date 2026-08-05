@@ -1,2 +1,10 @@
-playwright>=1.57.0
-pandas>=2.3.0
+# Runtime dependencies.
+# Ranges: minimum version (floor) + cap on the next major version, so pip
+# resolves within the same major line as the tested snapshot in
+# requirements.lock. Raise the floor/cap only when intentionally upgrading.
+playwright>=1.57.0,<2.0.0
+numpy>=2.3.0,<3.0.0
+pandas>=2.3.0,<4.0.0
+scikit-learn>=1.8.0,<2.0.0
+nltk>=3.9.0,<4.0.0
+Sastrawi>=1.0.1,<2.0.0

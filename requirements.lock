@@ -1,0 +1,22 @@
+# Tested dependency snapshot (runtime only, dev tooling excluded).
+# Generated from the working venv with: pip freeze | grep -v "^ruff==" > requirements.lock
+# Regenerate only when intentionally changing dependencies.
+click==8.4.2
+defusedxml==0.7.1
+greenlet==3.5.4
+joblib==1.5.3
+narwhals==2.24.0
+nltk==3.10.1
+numpy==2.5.1
+pandas==3.0.5
+playwright==1.62.0
+pyee==13.0.1
+python-dateutil==2.9.0.post0
+regex==2026.7.19
+Sastrawi==1.0.1
+scikit-learn==1.9.0
+scipy==1.18.0
+six==1.17.0
+threadpoolctl==3.6.0
+tqdm==4.70.0
+typing_extensions==4.16.0

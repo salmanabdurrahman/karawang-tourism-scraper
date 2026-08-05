@@ -1,0 +1,13 @@
+# Ruff linter configuration.
+# Run: ruff check src tests
+# Dev dependency declared in requirements-dev.txt.
+[tool.ruff]
+line-length = 120
+target-version = "py38"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests insert src/ into sys.path before importing project modules.
+"tests/*.py" = ["E402"]

@@ -1,2 +1,50 @@
-data
-venv
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Project data (scraped data & datasets — never committed)
+data/
+
+# Downloaded corpora (NLTK punkt, etc.)
+nltk_data/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Pi agent runtime artifacts
+.pi/

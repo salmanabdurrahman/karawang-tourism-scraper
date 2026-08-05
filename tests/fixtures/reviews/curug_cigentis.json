@@ -1,0 +1,23 @@
+{
+  "place_info": {
+    "name": "Curug Cigentis",
+    "category": "Taman",
+    "avg_rating": "4.5",
+    "total_reviews_text": "1.234 ulasan",
+    "address": "Kecamatan Telagasari, Karawang",
+    "description": "Air terjun dengan pemandangan alam",
+    "attributes": "Parkir: Ada | Toilet: Ada | Tiket: Murah"
+  },
+  "reviews": [
+    {"user_name": "Budi Santoso", "rating": 5, "text": "Airnya sejuk dan pemandangan bagus", "time": "2 hari yang lalu"},
+    {"user_name": "Budi Santoso", "rating": 5, "text": "Airnya sejuk dan pemandangan bagus", "time": "2 hari yang lalu"},
+    {"user_name": "Siti Aminah", "rating": 4, "text": "Tempat bagus untuk keluarga", "time": "1 minggu yang lalu"},
+    {"user_name": "Andi Wijaya", "rating": 3, "text": "Lumayan, tapi ramai", "time": "2 bulan yang lalu"},
+    {"user_name": "Dewi Lestari", "rating": 2, "text": "Kurang bersih", "time": "1 tahun yang lalu"},
+    {"user_name": "Rudi Hartono", "rating": 1, "text": "Kecewa, jauh dari jalan utama", "time": "3 jam yang lalu"},
+    {"user_name": "Tanpa Rating", "rating": 0, "text": "Tidak ada rating tapi ada teks", "time": "baru saja"},
+    {"user_name": "Kosong", "rating": 5, "text": "", "time": "1 hari yang lalu"},
+    {"user_name": "Edit Review", "rating": 4, "text": "Diedit tapi tetap bagus", "time": "diedit 5 hari yang lalu"},
+    {"user_name": "Siti Aminah", "rating": 4, "text": "Tempat bagus untuk keluarga", "time": "1 minggu yang lalu"}
+  ]
+}

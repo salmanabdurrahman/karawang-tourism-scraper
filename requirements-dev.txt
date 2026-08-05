@@ -1,0 +1,5 @@
+# Dev tooling. Install after the runtime requirements:
+#   pip install -r requirements-dev.txt
+# Ruff is pinned exactly so lint results are reproducible across machines.
+-r requirements.txt
+ruff==0.16.1

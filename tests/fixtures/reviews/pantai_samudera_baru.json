@@ -1,0 +1,16 @@
+{
+  "place_info": {
+    "name": "Pantai Samudera Baru",
+    "category": "Pantai",
+    "avg_rating": "4.0",
+    "total_reviews_text": "856 ulasan",
+    "address": "Kecamatan Pakisjaya, Karawang",
+    "description": "",
+    "attributes": ""
+  },
+  "reviews": [
+    {"user_name": "Agus Salim", "rating": 5, "text": "Pasir putih bersih", "time": "1 bulan yang lalu"},
+    {"user_name": "", "rating": 4, "text": "Sunsetnya cantik", "time": "2 minggu yang lalu"},
+    {"user_name": "Bambang", "rating": 2, "text": "Sampah di mana-mana", "time": "6 bulan yang lalu"}
+  ]
+}

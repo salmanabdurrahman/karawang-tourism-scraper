@@ -22,44 +22,37 @@ Author: Salman Abdurrahman
 Date: 2025
 """
 
-from playwright.sync_api import sync_playwright
-import pandas as pd
-import time
 import os
 import re
+import time
 
+import pandas as pd
 
-# Configuration
-SEARCH_QUERY = "Tempat Wisata di Karawang"
-OUTPUT_DIR = "data/raw"
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+from browser import browser_session
+from config import (
+    MAX_SCROLL_ATTEMPTS,
+    PAGE_LOAD_TIMEOUT,
+    RAW_DIR,
+    SCROLL_PAUSE_TIME,
+    SEARCH_QUERY,
+    SELECTOR_END_OF_LIST,
+    SELECTOR_PLACE_LINK,
+    SELECTOR_RESULTS_FEED,
+    SELECTOR_SEARCHBOX,
+    SHORT_SELECTOR_TIMEOUT,
+    ensure_dir,
+    resolve_raw_csv_name,
+)
 
-# Generate output filename from query
+# Configuration (paths & values centralized in config.py)
+OUTPUT_DIR = RAW_DIR
+ensure_dir(OUTPUT_DIR)
+
+# Generate output filename from query, then map it to the canonical raw CSV
+# name used by the rest of the pipeline (config.RAW_CSV_NAME_COMPATIBILITY).
 query_slug = re.sub(r'[^\w\s-]', '', SEARCH_QUERY.lower())
 query_slug = re.sub(r'[-\s]+', '_', query_slug)
-OUTPUT_FILE = os.path.join(OUTPUT_DIR, f"{query_slug}_places_list.csv")
-
-# Scraping settings
-SCROLL_PAUSE_TIME = 2  # Seconds to wait between scrolls
-MAX_SCROLL_ATTEMPTS = 50  # Maximum number of scroll attempts
-PAGE_LOAD_TIMEOUT = 60000  # Milliseconds
-
-
-def initialize_browser(headless=False):
-    """
-    Initializes Playwright browser instance.
-    
-    Args:
-        headless (bool): Run browser in headless mode
-        
-    Returns:
-        tuple: (browser, page) instances
-    """
-    playwright = sync_playwright().start()
-    browser = playwright.chromium.launch(headless=headless)
-    page = browser.new_page()
-    
-    return playwright, browser, page
+OUTPUT_FILE = os.path.join(OUTPUT_DIR, resolve_raw_csv_name(f"{query_slug}_places_list.csv"))
 
 
 def navigate_to_maps(page):
@@ -75,7 +68,7 @@ def navigate_to_maps(page):
     try:
         print("Opening Google Maps...")
         page.goto("https://www.google.com/maps", timeout=PAGE_LOAD_TIMEOUT)
-        page.wait_for_selector('input#searchboxinput', timeout=10000)
+        page.wait_for_selector(SELECTOR_SEARCHBOX, timeout=SHORT_SELECTOR_TIMEOUT)
         return True
     except Exception as e:
         print(f"Error navigating to Google Maps: {e}")
@@ -95,11 +88,11 @@ def perform_search(page, query):
     """
     try:
         print(f"Searching for: '{query}'")
-        page.fill('input#searchboxinput', query)
+        page.fill(SELECTOR_SEARCHBOX, query)
         page.keyboard.press('Enter')
         
         # Wait for results panel to load
-        page.wait_for_selector('div[role="feed"]', timeout=10000)
+        page.wait_for_selector(SELECTOR_RESULTS_FEED, timeout=SHORT_SELECTOR_TIMEOUT)
         print("Search results loaded.")
         return True
     except Exception as e:
@@ -127,25 +120,28 @@ def scroll_results_panel(page):
     
     while scroll_attempts < MAX_SCROLL_ATTEMPTS:
         # Scroll the feed panel to bottom
-        page.evaluate('''
-            const feed = document.querySelector('div[role="feed"]');
-            if (feed) {
-                feed.scrollTop = feed.scrollHeight;
-            }
-        ''')
+        page.evaluate(
+            """(selector) => {
+                const feed = document.querySelector(selector);
+                if (feed) {
+                    feed.scrollTop = feed.scrollHeight;
+                }
+            }""",
+            SELECTOR_RESULTS_FEED,
+        )
         
         time.sleep(SCROLL_PAUSE_TIME)
         scroll_attempts += 1
         
         # Count currently loaded places
         # Each place has a link with class 'hfpxzc'
-        places = page.locator('a.hfpxzc').all()
+        places = page.locator(SELECTOR_PLACE_LINK).all()
         current_count = len(places)
         
         print(f"   Found {current_count} places (attempt {scroll_attempts})...")
         
         # Check if we've reached the end
-        end_of_list = page.locator("text=You've reached the end of the list").is_visible()
+        end_of_list = page.locator(SELECTOR_END_OF_LIST).is_visible()
         
         # Stop if no new items loaded or end marker found
         if current_count == last_count or end_of_list:
@@ -170,7 +166,7 @@ def extract_place_data(page):
     print("Extracting place data...")
     
     results = []
-    places = page.locator('a.hfpxzc').all()
+    places = page.locator(SELECTOR_PLACE_LINK).all()
     
     for idx, place in enumerate(places, 1):
         try:
@@ -227,54 +223,43 @@ def scrape_gmaps_places(query, headless=False):
     print(f"Starting Google Maps scraper for: '{query}'")
     print("=" * 60)
     
-    playwright = None
-    browser = None
-    
     try:
-        # Initialize browser
-        playwright, browser, page = initialize_browser(headless=headless)
-        
-        # Navigate to Google Maps
-        if not navigate_to_maps(page):
+        # Browser lifecycle is owned by browser_session (always closed on exit)
+        with browser_session(headless=headless) as page:
+            # Navigate to Google Maps
+            if not navigate_to_maps(page):
+                return None
+            
+            # Perform search
+            if not perform_search(page, query):
+                return None
+            
+            # Scroll to load all results
+            total_places = scroll_results_panel(page)
+            
+            if total_places == 0:
+                print("No places found for the given query.")
+                return None
+            
+            # Extract place data
+            results = extract_place_data(page)
+            
+            if not results:
+                print("Failed to extract any place data.")
+                return None
+            
+            # Save to CSV
+            if save_to_csv(results, OUTPUT_FILE):
+                df = pd.DataFrame(results)
+                print("\nPreview of scraped data:")
+                print(df.head())
+                return df
+            
             return None
-        
-        # Perform search
-        if not perform_search(page, query):
-            return None
-        
-        # Scroll to load all results
-        total_places = scroll_results_panel(page)
-        
-        if total_places == 0:
-            print("No places found for the given query.")
-            return None
-        
-        # Extract place data
-        results = extract_place_data(page)
-        
-        if not results:
-            print("Failed to extract any place data.")
-            return None
-        
-        # Save to CSV
-        if save_to_csv(results, OUTPUT_FILE):
-            df = pd.DataFrame(results)
-            print("\nPreview of scraped data:")
-            print(df.head())
-            return df
-        
-        return None
     
     except Exception as e:
         print(f"Error during scraping: {e}")
         return None
-    
-    finally:
-        # Cleanup
-        if browser:
-            browser.close()
-        if playwright:
-            playwright.stop()
 
 
 if __name__ == "__main__":

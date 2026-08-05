@@ -29,191 +29,76 @@ Dependencies:
     - pandas
 
 Input:
-    - JSON files in: data/reviews_json/*.json (from gmaps_reviews_json_scraper.py)
+    - JSON files in: data/reviews_json/*.json (from gmaps_reviews_scraper.py)
 
 Author: Salman Abdurrahman
 Date: 2025
 """
 
-import pandas as pd
 import glob
-import os
 import json
-import re
-import hashlib
+import os
 import random
-from datetime import datetime, timedelta
 
+import pandas as pd
 
-# Configuration
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-INPUT_DIR = os.path.join(BASE_DIR, "data", "reviews_json")
-OUTPUT_DIR = os.path.join(BASE_DIR, "data", "processed")
-OUTPUT_FILE = os.path.join(OUTPUT_DIR, "karawang_tourism_final.csv")
+from config import (
+    MAX_SAMPLE_REVIEWS_PER_PLACE,
+    PROCESSED_DIR,
+    REVIEWS_JSON_DIR,
+    TOURISM_FINAL_FILE,
+    ensure_dir,
+    require_dir,
+)
+from utils import (
+    anonymize_user,
+    clean_attributes,
+    clean_text,
+    convert_relative_time,
+    parse_int_from_text,
+)
+
+# Configuration (paths & values centralized in config.py)
+INPUT_DIR = REVIEWS_JSON_DIR
+OUTPUT_DIR = PROCESSED_DIR
+OUTPUT_FILE = TOURISM_FINAL_FILE
 
 # Limit reviews per place for balanced dataset
-MAX_REVIEWS_PER_PLACE = 150
+MAX_REVIEWS_PER_PLACE = MAX_SAMPLE_REVIEWS_PER_PLACE
 
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+# Frozen output schema & column order (docs/baseline.md)
+FINAL_COLUMNS = [
+    'user_id',
+    'user_rating',
+    'review_text',
+    'review_time',
+    'place_name',
+    'place_description',
+    'place_category',
+    'place_attributes',
+    'place_address',
+    'place_total_reviews_gmaps',
+    'place_avg_rating'
+]
 
 
-# Text Cleaning Functions
-def clean_text(text):
+# File Loading
+def load_place_file(filepath):
     """
-    Cleans text from special characters and Google Maps artifacts.
-    
-    Removes common encoding issues and normalizes whitespace.
-    
+    Loads one place review JSON file.
+
     Args:
-        text (str): Raw text to clean
-        
+        filepath (str): Path to the JSON file.
+
     Returns:
-        str: Cleaned text with normalized whitespace
+        dict: Parsed JSON content, or None if the file could not be read.
     """
-    if not isinstance(text, str):
-        return ""
-    
-    # Remove Google Maps specific artifacts
-    artifacts = ["Óóä", "¬†", "", "", ""]
-    for artifact in artifacts:
-        text = text.replace(artifact, "")
-    
-    # Normalize whitespace
-    text = re.sub(r'\s+', ' ', text).strip()
-    
-    return text
-
-
-def clean_attributes(text):
-    """
-    Cleans and formats place attributes text.
-    
-    Removes leading special characters and formats as comma-separated list.
-    
-    Args:
-        text (str): Raw attributes text with pipe separators
-        
-    Returns:
-        str: Comma-separated cleaned attributes
-    """
-    if not isinstance(text, str):
-        return ""
-    
-    text = clean_text(text)
-    items = text.split('|')
-    
-    clean_items = []
-    for item in items:
-        # Remove leading non-alphanumeric characters
-        cleaned = re.sub(r'^[^a-zA-Z0-9]+', '', item).strip()
-        if cleaned:
-            clean_items.append(cleaned)
-    
-    return ", ".join(clean_items)
-
-
-# User Anonymization
-def anonymize_user(user_name):
-    """
-    Anonymizes user name using MD5 hashing.
-    
-    Args:
-        user_name (str): Original user name
-        
-    Returns:
-        str: First 10 characters of MD5 hash, or "anonymous" if empty
-    """
-    if not isinstance(user_name, str) or not user_name:
-        return "anonymous"
-    
-    user_name = user_name.strip().lower()
-    hash_object = hashlib.md5(user_name.encode('utf-8'))
-    
-    return hash_object.hexdigest()[:10]
-
-
-# Timestamp Conversion
-def convert_relative_time(text):
-    """
-    Converts relative time text to ISO date format.
-    
-    Handles various Indonesian time expressions like:
-    - "2 jam yang lalu" -> date 2 hours ago
-    - "3 hari yang lalu" -> date 3 days ago
-    - "1 minggu yang lalu" -> date 1 week ago
-    - "2 bulan yang lalu" -> date 2 months ago
-    - "1 tahun yang lalu" -> date 1 year ago
-    
-    Args:
-        text (str): Relative time text in Indonesian
-        
-    Returns:
-        str: ISO date string (YYYY-MM-DD), empty string if parsing fails
-    """
-    if not isinstance(text, str) or not text:
-        return ""
-    
-    text = text.lower().replace("diedit", "").strip()
-    current_time = datetime.now()
-    delta = timedelta(0)
-    
     try:
-        # Recent times (minutes, seconds, just now)
-        if any(word in text for word in ["menit", "detik", "baru saja"]):
-            delta = timedelta(days=0)
-        
-        # Hours
-        elif "jam" in text:
-            match = re.search(r'(\d+)', text)
-            hours = int(match.group(1)) if match else 1
-            delta = timedelta(hours=hours)
-        
-        # Days
-        elif "hari" in text:
-            match = re.search(r'(\d+)', text)
-            days = int(match.group(1)) if match else 1
-            delta = timedelta(days=days)
-        
-        # Weeks
-        elif "minggu" in text:
-            match = re.search(r'(\d+)', text)
-            weeks = int(match.group(1)) if match else 1
-            delta = timedelta(weeks=weeks)
-        
-        # Months (approximate: 30 days per month)
-        elif "bulan" in text:
-            match = re.search(r'(\d+)', text)
-            months = int(match.group(1)) if match else 1
-            delta = timedelta(days=months * 30)
-        
-        # Years (approximate: 365 days per year)
-        elif "tahun" in text:
-            match = re.search(r'(\d+)', text)
-            years = int(match.group(1)) if match else 1
-            delta = timedelta(days=years * 365)
-        
-        past_date = current_time - delta
-        return past_date.strftime("%Y-%m-%d")
-    
-    except Exception:
-        return ""
-
-
-def parse_int_from_text(text):
-    """
-    Extracts integer from text by removing all non-digit characters.
-    
-    Args:
-        text (str): Text containing numbers
-        
-    Returns:
-        int: Extracted integer, 0 if no digits found
-    """
-    if not isinstance(text, str):
-        return 0
-    
-    nums = re.sub(r'\D', '', text)
-    return int(nums) if nums else 0
+        with open(filepath, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"   Warning: failed to LOAD {os.path.basename(filepath)}: {e}")
+        return None
 
 
 # Review Processing Functions
@@ -328,20 +213,19 @@ def stratified_sample_reviews(reviews, max_count):
     return sampled_reviews
 
 
-def process_place_file(filepath):
+# Transformation
+def transform_place_file(data, filepath):
     """
-    Processes a single place JSON file.
-    
+    Cleans, deduplicates, samples, and flattens one place's data.
+
     Args:
-        filepath (str): Path to JSON file
-        
+        data (dict): Parsed JSON content of one place file.
+        filepath (str): Path of the source file (used in error messages).
+
     Returns:
-        list: List of flattened review records, empty list if error
+        list: Flattened review records, empty list if transformation failed.
     """
     try:
-        with open(filepath, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        
         place_info = data.get('place_info', {})
         raw_reviews = data.get('reviews', [])
         
@@ -391,18 +275,53 @@ def process_place_file(filepath):
         return flattened_records
     
     except Exception as e:
-        print(f"   Warning: Error reading {os.path.basename(filepath)}: {e}")
+        print(f"   Warning: failed to TRANSFORM {os.path.basename(filepath)}: {e}")
         return []
 
 
+# CSV Writing
+def write_output(records):
+    """
+    Builds the final DataFrame and writes the CSV output (utf-8-sig).
+
+    Args:
+        records (list): Flattened review records from all processed places.
+    """
+    df = pd.DataFrame(records)
+    
+    # Reorder columns to the frozen schema
+    available_columns = [col for col in FINAL_COLUMNS if col in df.columns]
+    df = df[available_columns]
+    
+    # Save to CSV
+    ensure_dir(OUTPUT_DIR)
+    df.to_csv(OUTPUT_FILE, index=False, encoding='utf-8-sig')
+    
+    # Print summary
+    print("\n" + "=" * 50)
+    print("DATA PROCESSING COMPLETED!")
+    print(f"Output file: {OUTPUT_FILE}")
+    print(f"Total reviews: {len(df)}")
+    print("-" * 30)
+    print("Rating Distribution:")
+    print(df['user_rating'].value_counts().sort_index())
+    print("=" * 50)
+
+
+# Orchestration
 def process_all_files():
     """
     Main processing function that orchestrates the entire pipeline.
-    
+
     Loads all JSON files, processes each place, and exports final dataset.
     """
     print("Starting data processing with balanced sampling...")
     
+    # Validate input folder before processing
+    if not require_dir(INPUT_DIR):
+        print(f"Error: Reviews JSON folder not found: {INPUT_DIR}")
+        return
+
     # Find all JSON files
     all_files = glob.glob(os.path.join(INPUT_DIR, "*.json"))
     
@@ -416,44 +335,14 @@ def process_all_files():
     all_records = []
     
     for filepath in all_files:
-        records = process_place_file(filepath)
-        all_records.extend(records)
+        data = load_place_file(filepath)
+        if data is None:
+            continue
+        all_records.extend(transform_place_file(data, filepath))
     
     # Export to CSV
     if all_records:
-        df = pd.DataFrame(all_records)
-        
-        # Reorder columns for consistency
-        column_order = [
-            'user_id',
-            'user_rating',
-            'review_text',
-            'review_time',
-            'place_name',
-            'place_description',
-            'place_category',
-            'place_attributes',
-            'place_address',
-            'place_total_reviews_gmaps',
-            'place_avg_rating'
-        ]
-        
-        available_columns = [col for col in column_order if col in df.columns]
-        df = df[available_columns]
-        
-        # Save to CSV
-        df.to_csv(OUTPUT_FILE, index=False, encoding='utf-8-sig')
-        
-        # Print summary
-        print("\n" + "=" * 50)
-        print("DATA PROCESSING COMPLETED!")
-        print(f"Output file: {OUTPUT_FILE}")
-        print(f"Total reviews: {len(df)}")
-        print("-" * 30)
-        print("Rating Distribution:")
-        print(df['user_rating'].value_counts().sort_index())
-        print("=" * 50)
-    
+        write_output(all_records)
     else:
         print("Error: No data was successfully processed.")
 

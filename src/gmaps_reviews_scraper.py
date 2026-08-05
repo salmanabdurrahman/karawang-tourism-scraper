@@ -28,60 +28,53 @@ Author: Salman Abdurrahman
 Date: 2025
 """
 
-from playwright.sync_api import sync_playwright
-import pandas as pd
-import time
-import os
-import re
 import json
+import os
+import time
 
+import pandas as pd
 
-# Configuration
-INPUT_FILE = "data/raw/karawang_places_list.csv"
-OUTPUT_DIR = "data/reviews_json"
-MAX_REVIEWS_PER_PLACE = 400  # Target review count (with text only)
+from browser import browser_session
+from config import (
+    ABOUT_TAB_PATTERN,
+    FALLBACK_TIMEOUT,
+    MAX_REVIEWS_PER_PLACE,
+    PAGE_LOAD_TIMEOUT,
+    PLACES_LIST_FILE,
+    REVIEWS_JSON_DIR,
+    REVIEWS_TAB_PATTERN,
+    SCROLL_DELAY,
+    SCROLL_EXTRA_BUFFER,
+    SELECTOR_ADDRESS,
+    SELECTOR_ATTRIBUTES,
+    SELECTOR_CATEGORY_BUTTON,
+    SELECTOR_DESCRIPTION,
+    SELECTOR_H1,
+    SELECTOR_MAIN_PANEL,
+    SELECTOR_PLACE_NAME,
+    SELECTOR_RATING_CONTAINER,
+    SELECTOR_RATING_VALUE,
+    SELECTOR_REVIEW_CARD,
+    SELECTOR_REVIEW_FILLED_STAR,
+    SELECTOR_REVIEW_STARS_CONTAINER,
+    SELECTOR_REVIEW_TEXT,
+    SELECTOR_REVIEW_TIME,
+    SELECTOR_REVIEW_USER,
+    SELECTOR_REVIEWS_COUNT_LABEL,
+    SELECTOR_SEE_MORE_BUTTON,
+    SELECTOR_TAB,
+    SELECTOR_TIMEOUT,
+    TAB_SWITCH_DELAY,
+    ensure_dir,
+    require_file,
+)
+from utils import sanitize_filename
 
-# Scraping settings
-PAGE_LOAD_TIMEOUT = 60000  # Milliseconds
-SELECTOR_TIMEOUT = 15000  # Milliseconds for primary selector
-FALLBACK_TIMEOUT = 5000  # Milliseconds for fallback selector
-TAB_SWITCH_DELAY = 2  # Seconds after switching tabs
-SCROLL_DELAY = 1.5  # Seconds between scroll actions
-SCROLL_EXTRA_BUFFER = 100  # Extra cards to load for filtering
+# Configuration (paths & values centralized in config.py)
+INPUT_FILE = PLACES_LIST_FILE
+OUTPUT_DIR = REVIEWS_JSON_DIR
 
-os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-
-def sanitize_filename(filename):
-    """
-    Sanitizes a string to be used as a safe filename.
-    
-    Args:
-        filename (str): Original filename
-        
-    Returns:
-        str: Sanitized filename
-    """
-    safe_chars = [c for c in filename if c.isalnum() or c in (' ', '-', '_')]
-    return "".join(safe_chars).strip()
-
-
-def initialize_browser_context(headless=False):
-    """
-    Initializes browser context with Indonesian locale.
-    
-    Args:
-        headless (bool): Run browser in headless mode
-        
-    Returns:
-        tuple: (playwright, browser, context, page) instances
-    """
-    playwright = sync_playwright().start()
-    browser = playwright.chromium.launch(headless=headless)
-    context = browser.new_context(locale="id-ID")
-    page = context.new_page()
-    
-    return playwright, browser, context, page
+ensure_dir(OUTPUT_DIR)
 
 
 def wait_for_page_load(page):
@@ -98,12 +91,12 @@ def wait_for_page_load(page):
     """
     try:
         # Try primary selector (place name)
-        page.wait_for_selector('.DUwDvf.lfPIob', timeout=SELECTOR_TIMEOUT)
+        page.wait_for_selector(SELECTOR_PLACE_NAME, timeout=SELECTOR_TIMEOUT)
         return True
     except Exception:
         try:
             # Fallback to H1 selector
-            page.wait_for_selector('h1', timeout=FALLBACK_TIMEOUT)
+            page.wait_for_selector(SELECTOR_H1, timeout=FALLBACK_TIMEOUT)
             return True
         except Exception:
             return False
@@ -131,7 +124,7 @@ def extract_place_metadata(page):
     
     # Extract place name
     try:
-        name_el = page.locator('.DUwDvf.lfPIob').first
+        name_el = page.locator(SELECTOR_PLACE_NAME).first
         if name_el.count() > 0:
             place_info['name'] = name_el.inner_text()
     except Exception:
@@ -139,17 +132,15 @@ def extract_place_metadata(page):
     
     # Extract rating and review count
     try:
-        container = page.locator('.fontBodyMedium.dmRWX').first
+        container = page.locator(SELECTOR_RATING_CONTAINER).first
         
         # Average rating
-        rating_el = container.locator('span[aria-hidden="true"]').first
+        rating_el = container.locator(SELECTOR_RATING_VALUE).first
         if rating_el.count() > 0:
             place_info['avg_rating'] = rating_el.inner_text().replace(',', '.')
         
         # Total reviews text
-        reviews_el = container.locator(
-            'span[aria-label*="ulasan"], span[aria-label*="reviews"]'
-        ).first
+        reviews_el = container.locator(SELECTOR_REVIEWS_COUNT_LABEL).first
         if reviews_el.count() > 0:
             place_info['total_reviews_text'] = reviews_el.get_attribute('aria-label')
     except Exception:
@@ -157,7 +148,7 @@ def extract_place_metadata(page):
     
     # Extract category
     try:
-        category_btn = page.locator('button.DkEaL').first
+        category_btn = page.locator(SELECTOR_CATEGORY_BUTTON).first
         if category_btn.count() > 0:
             place_info['category'] = category_btn.inner_text()
     except Exception:
@@ -165,7 +156,7 @@ def extract_place_metadata(page):
     
     # Extract address
     try:
-        address_elements = page.locator('.Io6YTe.fontBodyMedium.kR99db.fdkmkc').all_inner_texts()
+        address_elements = page.locator(SELECTOR_ADDRESS).all_inner_texts()
         if address_elements:
             place_info['address'] = address_elements[0]
     except Exception:
@@ -184,8 +175,8 @@ def extract_about_info(page, place_info):
     """
     try:
         # Find and click About/Tentang tab
-        about_tab = page.locator('div.Gpq6kf.NlVald').filter(
-            has_text=re.compile(r"Tentang|About")
+        about_tab = page.locator(SELECTOR_TAB).filter(
+            has_text=ABOUT_TAB_PATTERN
         ).first
         
         if about_tab.count() > 0:
@@ -194,7 +185,7 @@ def extract_about_info(page, place_info):
             
             # Extract description
             try:
-                desc_el = page.locator('span.HlvSq')
+                desc_el = page.locator(SELECTOR_DESCRIPTION)
                 if desc_el.count() > 0:
                     place_info['description'] = desc_el.first.inner_text()
             except Exception:
@@ -202,7 +193,7 @@ def extract_about_info(page, place_info):
             
             # Extract attributes list
             try:
-                attrs = page.locator('ul.ZQ6we li.hpLkke').all_inner_texts()
+                attrs = page.locator(SELECTOR_ATTRIBUTES).all_inner_texts()
                 if attrs:
                     # Format: join with pipe separator, replace newlines with colon
                     place_info['attributes'] = " | ".join([
@@ -231,8 +222,8 @@ def scroll_reviews_panel(page, max_reviews):
     
     # Focus on reviews area
     try:
-        page.hover('div[role="main"]')
-        first_card = page.locator('div[data-review-id]').first
+        page.hover(SELECTOR_MAIN_PANEL)
+        first_card = page.locator(SELECTOR_REVIEW_CARD).first
         if first_card.count() > 0:
             first_card.click()
     except Exception:
@@ -243,7 +234,7 @@ def scroll_reviews_panel(page, max_reviews):
     target_count = max_reviews + SCROLL_EXTRA_BUFFER
     
     while True:
-        cards = page.locator('div[data-review-id]').all()
+        cards = page.locator(SELECTOR_REVIEW_CARD).all()
         current_count = len(cards)
         
         print(f"\r      Loaded (mixed): {current_count}...", end="")
@@ -291,20 +282,32 @@ def extract_reviews_with_js(page, max_reviews):
     """
     print("   Extracting review data (filtering empty reviews)...")
     
+    # Selectors come from config.py; passed as an argument so the JS block
+    # stays readable and the selectors stay centralized.
+    selectors = {
+        "reviewCard": SELECTOR_REVIEW_CARD,
+        "seeMore": SELECTOR_SEE_MORE_BUTTON,
+        "reviewText": SELECTOR_REVIEW_TEXT,
+        "userName": SELECTOR_REVIEW_USER,
+        "starsContainer": SELECTOR_REVIEW_STARS_CONTAINER,
+        "filledStar": SELECTOR_REVIEW_FILLED_STAR,
+        "reviewTime": SELECTOR_REVIEW_TIME,
+    }
+    
     # JavaScript code to extract reviews and filter empties
-    reviews_data = page.evaluate("""() => {
+    reviews_data = page.evaluate("""(sel) => {
         const data = [];
-        const cards = document.querySelectorAll('div[data-review-id]');
+        const cards = document.querySelectorAll(sel.reviewCard);
         
         cards.forEach(card => {
             // 1. Click 'See More' button if present
-            const moreBtn = card.querySelector('button.w8nwRe.kyuRq');
+            const moreBtn = card.querySelector(sel.seeMore);
             if (moreBtn) {
                 moreBtn.click();
             }
             
             // 2. Extract review text
-            const textEl = card.querySelector('.wiI7pd');
+            const textEl = card.querySelector(sel.reviewText);
             const text = textEl ? textEl.innerText : "";
             
             // FILTER: Skip if empty or blank
@@ -313,15 +316,15 @@ def extract_reviews_with_js(page, max_reviews):
             }
             
             // 3. Extract other data
-            const userEl = card.querySelector('.d4r55.fontTitleMedium');
+            const userEl = card.querySelector(sel.userName);
             const user = userEl ? userEl.innerText.split('\\n')[0] : "Anonymous";
             
             // Count filled stars for rating
-            const starsContainer = card.querySelector('.DU9Pgb');
+            const starsContainer = card.querySelector(sel.starsContainer);
             const stars = starsContainer ? 
-                starsContainer.querySelectorAll('span.hCCjke').length : 0;
+                starsContainer.querySelectorAll(sel.filledStar).length : 0;
             
-            const timeEl = card.querySelector('.rsqaWe');
+            const timeEl = card.querySelector(sel.reviewTime);
             const time = timeEl ? timeEl.innerText : "";
             
             data.push({
@@ -333,7 +336,7 @@ def extract_reviews_with_js(page, max_reviews):
         });
         
         return data;
-    }""")
+    }""", selectors)
     
     # Limit to target count
     return reviews_data[:max_reviews]
@@ -374,8 +377,8 @@ def scrape_place_data(page, place_name, url):
         reviews_data = []
         
         try:
-            review_tab = page.locator('div.Gpq6kf.NlVald').filter(
-                has_text=re.compile(r"Ulasan|Reviews")
+            review_tab = page.locator(SELECTOR_TAB).filter(
+                has_text=REVIEWS_TAB_PATTERN
             ).first
             
             if review_tab.count() > 0:
@@ -434,54 +437,42 @@ def scrape_all_reviews(headless=False):
         headless (bool): Run browser in headless mode
     """
     # Load places list
-    try:
-        places_df = pd.read_csv(INPUT_FILE)
-        print(f"Loaded {len(places_df)} places from {INPUT_FILE}")
-    except FileNotFoundError:
+    if not require_file(INPUT_FILE):
         print(f"Error: Places list file not found: {INPUT_FILE}")
         print("Please run gmaps_scraper.py first!")
         return
-    
-    playwright = None
-    browser = None
+    places_df = pd.read_csv(INPUT_FILE)
+    print(f"Loaded {len(places_df)} places from {INPUT_FILE}")
     
     try:
-        # Initialize browser
-        playwright, browser, context, page = initialize_browser_context(headless)
-        
-        # Process each place
-        for index, row in places_df.iterrows():
-            place_name = row['place_name']
-            url = row['gmaps_url']
-            
-            # Create safe filename
-            safe_name = sanitize_filename(place_name)
-            output_json = os.path.join(OUTPUT_DIR, f"{safe_name}.json")
-            
-            # Skip if already scraped
-            if os.path.exists(output_json):
-                print(f"Skipping {place_name} (JSON already exists).")
-                continue
-            
-            print(f"\n[{index+1}/{len(places_df)}] Processing: {place_name}")
-            
-            # Scrape place data
-            place_data = scrape_place_data(page, place_name, url)
-            
-            if place_data:
-                save_to_json(place_data, output_json)
+        # Browser lifecycle is owned by browser_session (always closed on exit)
+        with browser_session(headless=headless, locale="id-ID") as page:
+            # Process each place
+            for index, row in places_df.iterrows():
+                place_name = row['place_name']
+                url = row['gmaps_url']
+                
+                # Create safe filename
+                safe_name = sanitize_filename(place_name)
+                output_json = os.path.join(OUTPUT_DIR, f"{safe_name}.json")
+                
+                # Skip if already scraped
+                if os.path.exists(output_json):
+                    print(f"Skipping {place_name} (JSON already exists).")
+                    continue
+                
+                print(f"\n[{index+1}/{len(places_df)}] Processing: {place_name}")
+                
+                # Scrape place data
+                place_data = scrape_place_data(page, place_name, url)
+                
+                if place_data:
+                    save_to_json(place_data, output_json)
         
         print("\nAll places processed successfully!")
     
     except Exception as e:
         print(f"Error during scraping: {e}")
-    
-    finally:
-        # Cleanup
-        if browser:
-            browser.close()
-        if playwright:
-            playwright.stop()
 
 
 if __name__ == "__main__":
